@@ -101,31 +101,31 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="border-b border-[#1f2430] bg-[#0b0e14] text-slate-200 px-6 py-3.5 sticky top-0 z-30 shadow-md">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <header className="border-b border-[#1f2430] bg-[#0b0e14] text-slate-200 px-6 py-3 sticky top-0 z-30 shadow-md">
+      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
         {/* Brand & Connection State */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-sky-500 flex items-center justify-center shadow-lg shadow-sky-500/20 ring-1 ring-white/20">
-            <span className="font-black text-xl text-slate-950 tracking-tighter">CL</span>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-sky-500 p-0.5 shadow-lg shadow-sky-500/20 ring-1 ring-white/10 shrink-0 flex items-center justify-center">
+            <img src="/logo.svg" alt="ClickLens Logo" className="w-full h-full rounded-[10px] object-cover" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-bold text-lg text-white tracking-tight">ClickLens</h1>
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-800 text-slate-400 border border-slate-700">
+              <h1 className="font-bold text-base text-white tracking-tight leading-none">ClickLens</h1>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-slate-800 text-slate-400 border border-slate-700">
                 v1.1
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-mono">
+            <p className="text-[11px] text-slate-400 font-mono mt-0.5">
               ClickHouse Observability Studio
             </p>
           </div>
 
-          <div className="h-6 w-px bg-slate-800 mx-2 hidden sm:block" />
+          <div className="h-5 w-px bg-slate-800 mx-1 hidden sm:block" />
 
           {/* Connection Status Pill */}
           <button
             onClick={() => setShowConnectModal(true)}
-            className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer shrink-0 ${
               status?.is_demo
                 ? 'bg-amber-950/40 text-amber-300 border-amber-800/60 hover:bg-amber-900/50'
                 : status?.connected
@@ -142,76 +142,85 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'bg-rose-400'
               }`}
             />
-            <span className="font-semibold">
+            <span className="font-semibold text-[11px]">
               {status?.is_demo ? 'Simulation Mode' : status?.connected ? 'Live ClickHouse' : 'Disconnected'}
             </span>
-            <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+            <ChevronDown className="w-3 h-3 opacity-60" />
           </button>
         </div>
 
-        {/* Database & Table Selectors + Actions */}
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <div className="flex items-center gap-2 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-800 flex-1 sm:flex-none">
-            <Database className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-            <select
-              value={selectedDb}
-              onChange={(e) => onSelectDb(e.target.value)}
-              className="bg-transparent text-xs text-slate-200 outline-none cursor-pointer font-medium w-full sm:w-auto"
-            >
-              {databases.map((db) => (
-                <option key={db.name} value={db.name} className="bg-slate-900 text-slate-200">
-                  {db.name} ({db.table_count})
-                </option>
-              ))}
-            </select>
+        {/* Database & Table Selectors + Actions Cluster */}
+        <div className="flex items-center gap-2 overflow-x-auto lg:overflow-visible w-full lg:w-auto pb-1 lg:pb-0 shrink-0">
+          {/* Segmented DB & Table Picker */}
+          <div className="flex items-center bg-[#10141f] rounded-xl border border-slate-800 p-0.5 shadow-inner shrink-0">
+            <div className="flex items-center gap-1.5 px-2.5 py-1">
+              <Database className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <select
+                value={selectedDb}
+                onChange={(e) => onSelectDb(e.target.value)}
+                className="bg-transparent text-xs text-slate-200 outline-none cursor-pointer font-medium pr-1"
+              >
+                {databases.map((db) => (
+                  <option key={db.name} value={db.name} className="bg-slate-900 text-slate-200">
+                    {db.name} ({db.table_count})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="h-4 w-px bg-slate-800" />
+
+            <div className="flex items-center gap-1.5 px-2.5 py-1">
+              <Layers className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <select
+                value={selectedTable}
+                onChange={(e) => onSelectTable(e.target.value)}
+                className="bg-transparent text-xs text-slate-200 outline-none cursor-pointer font-medium pr-1"
+              >
+                {availableTables.map((tbl) => (
+                  <option key={tbl} value={tbl} className="bg-slate-900 text-slate-200">
+                    {tbl}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-800 flex-1 sm:flex-none">
-            <Layers className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <select
-              value={selectedTable}
-              onChange={(e) => onSelectTable(e.target.value)}
-              className="bg-transparent text-xs text-slate-200 outline-none cursor-pointer font-medium w-full sm:w-auto"
+          {/* Action Buttons Group */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Diagnostic Report Export Button */}
+            <button
+              onClick={handleOpenReport}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-medium transition-colors cursor-pointer shrink-0"
+              title="Generate and export diagnostic audit report"
             >
-              {availableTables.map((tbl) => (
-                <option key={tbl} value={tbl} className="bg-slate-900 text-slate-200">
-                  {tbl}
-                </option>
-              ))}
-            </select>
+              <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
+              <span>Report</span>
+            </button>
+
+            {/* Command Palette Trigger */}
+            <button
+              onClick={onOpenCommandPalette}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-mono transition-colors cursor-pointer shrink-0"
+              title="Open Command Palette (Ctrl+K)"
+            >
+              <Command className="w-3.5 h-3.5" />
+              <span className="text-[11px]">Ctrl+K</span>
+            </button>
+
+            {/* Refresh Data */}
+            <button
+              onClick={onRefresh}
+              title="Refresh Data"
+              className="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
           </div>
-
-          {/* Diagnostic Report Export Button */}
-          <button
-            onClick={handleOpenReport}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-medium transition-colors cursor-pointer shrink-0"
-            title="Generate and export diagnostic audit report"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
-            <span className="inline">Report</span>
-          </button>
-
-          {/* Command Palette Trigger */}
-          <button
-            onClick={onOpenCommandPalette}
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-mono transition-colors cursor-pointer shrink-0"
-            title="Open Command Palette (Ctrl+K)"
-          >
-            <Command className="w-3.5 h-3.5" />
-            <span className="text-[11px]">Ctrl+K</span>
-          </button>
-
-          <button
-            onClick={onRefresh}
-            title="Refresh Data"
-            className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
         </div>
 
         {/* Quick Node Telemetry Stats */}
-        <div className="hidden lg:flex items-center gap-4 text-xs font-mono">
+        <div className="hidden lg:flex items-center gap-3.5 text-xs font-mono shrink-0">
           <div className="flex items-center gap-1.5 text-slate-300">
             <Zap className="w-3.5 h-3.5 text-amber-400" />
             <span className="text-slate-500">Merges:</span>

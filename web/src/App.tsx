@@ -174,10 +174,10 @@ export function App() {
 
       {/* Main Tab Navigation */}
       <div className="border-b border-slate-800 bg-[#0d1322] px-6">
-        <div className="max-w-7xl mx-auto flex items-center gap-1 overflow-x-auto py-2">
+        <div className="max-w-7xl mx-auto flex items-center gap-1.5 overflow-x-auto py-2 scrollbar-none">
           <button
             onClick={() => setActiveTab('PARTS')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
               activeTab === 'PARTS'
                 ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm shadow-sky-500/10'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
@@ -189,7 +189,7 @@ export function App() {
 
           <button
             onClick={() => setActiveTab('MERGES')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
               activeTab === 'MERGES'
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm shadow-amber-500/10'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
@@ -204,19 +204,19 @@ export function App() {
 
           <button
             onClick={() => setActiveTab('PIPELINE')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
               activeTab === 'PIPELINE'
                 ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm shadow-sky-500/10'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
             }`}
           >
             <Cpu className="w-3.5 h-3.5" />
-            <span>Query Pipeline DAG</span>
+            <span>Pipeline DAG</span>
           </button>
 
           <button
             onClick={() => setActiveTab('LOGS')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
               activeTab === 'LOGS'
                 ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm shadow-purple-500/10'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
@@ -228,38 +228,38 @@ export function App() {
 
           <button
             onClick={() => setActiveTab('CODECS')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
               activeTab === 'CODECS'
                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm shadow-emerald-500/10'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
             }`}
           >
             <HardDrive className="w-3.5 h-3.5" />
-            <span>Codec & Compression Auditor</span>
+            <span>Codec Optimizer</span>
           </button>
 
           <button
             onClick={() => setActiveTab('LOCAL')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
               activeTab === 'LOCAL'
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm shadow-amber-500/10'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
             }`}
           >
             <Database className="w-3.5 h-3.5" />
-            <span>Serverless Local Workbench</span>
+            <span>Local Workbench</span>
           </button>
 
           <button
             onClick={() => setActiveTab('CONSOLE')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
               activeTab === 'CONSOLE'
                 ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm shadow-sky-500/10'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
             }`}
           >
             <Terminal className="w-3.5 h-3.5" />
-            <span>SQL Console & Processes</span>
+            <span>SQL Console</span>
           </button>
         </div>
       </div>
