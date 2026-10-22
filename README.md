@@ -1,17 +1,22 @@
-<div align="center">
-  <img src="assets/logo.svg" width="96" height="96" alt="ClickLens Logo" />
-  <h1>ClickLens</h1>
-  <p>Local Observability Studio, MergeTree Parts Visualizer and Query Pipeline Profiler for ClickHouse</p>
+<p align="center">
+  <img src="docs/images/logo.png" width="130" alt="ClickLens Lynx Mascot Logo" style="border-radius: 28px;" />
+</p>
 
-  <p>
-    <a href="#quick-start">Quick Start</a> &bull;
-    <a href="#core-capabilities">Capabilities</a> &bull;
-    <a href="#cli-usage">CLI Usage</a> &bull;
-    <a href="#screenshots">Screenshots</a> &bull;
-    <a href="#architecture">Architecture</a> &bull;
-    <a href="#license">License</a>
-  </p>
-</div>
+<h1 align="center">ClickLens</h1>
+
+<p align="center">
+  <strong>Local Observability Studio, MergeTree Parts Visualizer and Query Pipeline Profiler for ClickHouse</strong>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick Start</a> &bull;
+  <a href="#core-capabilities">Capabilities</a> &bull;
+  <a href="#screenshots">Screenshots</a> &bull;
+  <a href="#mobile-responsiveness">Mobile Responsiveness</a> &bull;
+  <a href="#cli-usage">CLI Usage</a> &bull;
+  <a href="#architecture">Architecture</a> &bull;
+  <a href="#license">License</a>
+</p>
 
 ---
 
@@ -53,7 +58,7 @@ ClickLens provides low-level operational visibility into ClickHouse storage mech
   - Floating point metrics: `Gorilla, ZSTD(1)`.
   - Repetitive text: `LowCardinality(String)` with `ZSTD(3)`.
   - Unstructured text and JSON: `ZSTD(6)`.
-- Live Codec Compression Benchmark Simulator: Measures compression ratio and MB/s throughput across candidate codecs.
+- Live Codec Compression Benchmark Simulator: Measures real in-memory compression ratios and MB/s throughput across candidate codecs.
 - Zero-Downtime Migration Playbook Generator: Generates an atomic 5-step SQL playbook using shadow tables (`table_new`, `INSERT INTO ... SELECT`, `EXCHANGE TABLES`) so data is converted with zero downtime.
 
 ### 6. Serverless Local File Workbench and Converter
@@ -70,10 +75,16 @@ ClickLens provides low-level operational visibility into ClickHouse storage mech
 ## Screenshots
 
 <div align="center">
+  <p><strong>MergeTree Parts Heatmap & Part Age Histogram</strong></p>
+  <img src="docs/images/clicklens_parts_heatmap.png" width="900" alt="MergeTree Parts Heatmap" />
+  <br/><br/>
+  <p><strong>Query Execution Pipeline DAG</strong></p>
+  <img src="docs/images/clicklens_pipeline_dag.png" width="900" alt="Query Pipeline DAG" />
+  <br/><br/>
   <p><strong>Historical Query Log Analytics</strong></p>
   <img src="docs/images/clicklens_query_log.png" width="900" alt="Query Log Analytics" />
   <br/><br/>
-  <p><strong>Live Codec Benchmark Simulator</strong></p>
+  <p><strong>Live In-Memory Codec Benchmark Simulator</strong></p>
   <img src="docs/images/clicklens_codec_benchmark.png" width="900" alt="Codec Benchmark Simulator" />
   <br/><br/>
   <p><strong>Cluster Health Diagnostic Report Export</strong></p>
@@ -81,6 +92,27 @@ ClickLens provides low-level operational visibility into ClickHouse storage mech
   <br/><br/>
   <p><strong>Command Palette (Ctrl+K)</strong></p>
   <img src="docs/images/clicklens_command_palette.png" width="900" alt="Command Palette" />
+</div>
+
+---
+
+## Mobile Responsiveness
+
+ClickLens is fully responsive and optimized for all screen form factors, from ultrawide 4K monitors to tablets and mobile phone viewports (390px). On mobile devices, telemetry pills adapt into fluid stacks, data grids remain scrollable, and diagnostic modals scale cleanly without horizontal layout breaks.
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><strong>Mobile Parts Cockpit</strong></td>
+      <td align="center"><strong>Live Background Merges</strong></td>
+      <td align="center"><strong>Diagnostic Audit Modal</strong></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="docs/images/clicklens_mobile_parts.png" width="280" alt="Mobile Parts Cockpit" /></td>
+      <td align="center"><img src="docs/images/clicklens_mobile_merges.png" width="280" alt="Mobile Background Merges" /></td>
+      <td align="center"><img src="docs/images/clicklens_mobile_report.png" width="280" alt="Mobile Diagnostic Audit" /></td>
+    </tr>
+  </table>
 </div>
 
 ---

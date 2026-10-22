@@ -150,13 +150,13 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Database & Table Selectors + Actions */}
-        <div className="flex items-center gap-2.5 w-full md:w-auto">
-          <div className="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800">
-            <Database className="w-3.5 h-3.5 text-sky-400" />
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-2 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-800 flex-1 sm:flex-none">
+            <Database className="w-3.5 h-3.5 text-sky-400 shrink-0" />
             <select
               value={selectedDb}
               onChange={(e) => onSelectDb(e.target.value)}
-              className="bg-transparent text-xs text-slate-200 outline-none cursor-pointer font-medium"
+              className="bg-transparent text-xs text-slate-200 outline-none cursor-pointer font-medium w-full sm:w-auto"
             >
               {databases.map((db) => (
                 <option key={db.name} value={db.name} className="bg-slate-900 text-slate-200">
@@ -166,12 +166,12 @@ export const Header: React.FC<HeaderProps> = ({
             </select>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800">
-            <Layers className="w-3.5 h-3.5 text-amber-400" />
+          <div className="flex items-center gap-2 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-800 flex-1 sm:flex-none">
+            <Layers className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <select
               value={selectedTable}
               onChange={(e) => onSelectTable(e.target.value)}
-              className="bg-transparent text-xs text-slate-200 outline-none cursor-pointer font-medium"
+              className="bg-transparent text-xs text-slate-200 outline-none cursor-pointer font-medium w-full sm:w-auto"
             >
               {availableTables.map((tbl) => (
                 <option key={tbl} value={tbl} className="bg-slate-900 text-slate-200">
@@ -184,17 +184,17 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Diagnostic Report Export Button */}
           <button
             onClick={handleOpenReport}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-medium transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-medium transition-colors cursor-pointer shrink-0"
             title="Generate and export diagnostic audit report"
           >
             <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
-            <span className="hidden sm:inline">Diagnostic Report</span>
+            <span className="inline">Report</span>
           </button>
 
           {/* Command Palette Trigger */}
           <button
             onClick={onOpenCommandPalette}
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-mono transition-colors cursor-pointer"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-mono transition-colors cursor-pointer shrink-0"
             title="Open Command Palette (Ctrl+K)"
           >
             <Command className="w-3.5 h-3.5" />
@@ -204,7 +204,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onRefresh}
             title="Refresh Data"
-            className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
           >
             <RefreshCw className="w-4 h-4" />
           </button>

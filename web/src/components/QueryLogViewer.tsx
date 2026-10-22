@@ -235,7 +235,7 @@ export const QueryLogViewer: React.FC<QueryLogViewerProps> = ({ onSelectQueryFor
                   </div>
 
                   {/* Metrics Badges */}
-                  <div className="flex items-center gap-4 text-xs font-mono text-slate-400">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs font-mono text-slate-400">
                     <div className="flex items-center gap-1.5 bg-[#181c26] px-2.5 py-1.5 rounded-lg border border-[#252c3d]">
                       <Clock className="w-3.5 h-3.5 text-amber-400" />
                       <span className="text-slate-200">{formatDuration(entry.duration_ms)}</span>

@@ -205,7 +205,7 @@ export const CodecOptimizer: React.FC<CodecOptimizerProps> = ({ database, table 
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-4 text-xs font-mono">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs font-mono">
                     <span className="text-slate-400">
                       Disk: <strong className="text-slate-200">{formatBytes(col.data_compressed_bytes)}</strong>
                     </span>

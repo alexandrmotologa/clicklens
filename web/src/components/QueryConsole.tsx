@@ -203,7 +203,7 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({ onExecuteQuery }) =>
             {processes.map((p) => (
               <div key={p.query_id} className="py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="space-y-1 max-w-2xl">
-                  <div className="flex items-center gap-2 text-xs font-mono">
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
                     <span className="font-bold text-sky-400">{p.query_id}</span>
                     <span className="text-slate-600">•</span>
                     <span className="text-slate-400">{p.user}@{p.address}</span>

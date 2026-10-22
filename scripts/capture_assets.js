@@ -24,8 +24,8 @@ async function main() {
 
   await new Promise(r => setTimeout(r, 1500));
 
-  // 1. Tab: Parts & Partitions Heatmap (with Part Age Histogram & Micro-Batching banner)
-  console.log('Capturing Parts Heatmap & Age Histogram...');
+  // 1. Tab: Parts & Partitions Heatmap
+  console.log('Capturing Desktop: Parts Heatmap & Age Histogram...');
   const partsPath = path.join(outDir, 'clicklens_parts_heatmap.png');
   await page.screenshot({ path: partsPath });
 
@@ -118,10 +118,11 @@ async function main() {
   console.log('Opening Diagnostic Health Audit Report...');
   await page.evaluate(() => {
     const buttons = Array.from(document.querySelectorAll('button'));
-    const b = buttons.find(el => el.textContent && el.textContent.includes('Diagnostic Report'));
+    const b = buttons.find(el => el.title && el.title.includes('diagnostic audit')) ||
+              buttons.find(el => el.textContent && el.textContent.includes('Report'));
     if (b) b.click();
   });
-  await new Promise(r => setTimeout(r, 1200));
+  await new Promise(r => setTimeout(r, 1500));
   const reportPath = path.join(outDir, 'clicklens_diagnostic_report.png');
   await page.screenshot({ path: reportPath });
 
@@ -159,6 +160,49 @@ async function main() {
   const consolePath = path.join(outDir, 'clicklens_query_console.png');
   await page.screenshot({ path: consolePath });
 
+  // ==========================================
+  // MOBILE RESPONSIVENESS PREVIEW (390 x 844)
+  // ==========================================
+  console.log('Switching viewport to Mobile Responsive (390x844)...');
+  await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
+
+  // Mobile Parts Tab
+  await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const b = buttons.find(el => el.textContent && el.textContent.includes('Parts & Partitions'));
+    if (b) b.click();
+  });
+  await new Promise(r => setTimeout(r, 1200));
+  const mobilePartsPath = path.join(outDir, 'clicklens_mobile_parts.png');
+  await page.screenshot({ path: mobilePartsPath });
+  console.log('Saved Mobile Parts view to:', mobilePartsPath);
+
+  // Mobile Background Merges Tab
+  await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const b = buttons.find(el => el.textContent && el.textContent.includes('Background Merges'));
+    if (b) b.click();
+  });
+  await new Promise(r => setTimeout(r, 1000));
+  const mobileMergesPath = path.join(outDir, 'clicklens_mobile_merges.png');
+  await page.screenshot({ path: mobileMergesPath });
+  console.log('Saved Mobile Merges view to:', mobileMergesPath);
+
+  // Mobile Diagnostic Report Modal
+  await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const b = buttons.find(el => el.title && el.title.includes('diagnostic audit')) ||
+              buttons.find(el => el.textContent && el.textContent.includes('Report'));
+    if (b) b.click();
+  });
+  await new Promise(r => setTimeout(r, 1200));
+  const mobileReportPath = path.join(outDir, 'clicklens_mobile_report.png');
+  await page.screenshot({ path: mobileReportPath });
+  console.log('Saved Mobile Report view to:', mobileReportPath);
+
+  // Reset viewport back to desktop for clean exit
+  await page.setViewport({ width: 1280, height: 820 });
+
   // Record animated sequence
   console.log('Generating frames for animated demo GIF...');
   const sequence = [
@@ -194,7 +238,7 @@ async function main() {
 
   // Cleanup frames
   fs.rmSync(framesDir, { recursive: true, force: true });
-  console.log('✓ Successfully created all screenshots and animated demo GIF at:', gifPath);
+  console.log('✓ Successfully created all desktop & mobile screenshots and animated demo GIF at:', gifPath);
 }
 
 main().catch(err => {
