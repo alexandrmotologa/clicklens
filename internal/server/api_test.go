@@ -97,4 +97,45 @@ func TestAPIEndpoints(t *testing.T) {
 	if err := json.NewDecoder(rr.Body).Decode(&analysis); err != nil || len(analysis.Nodes) == 0 {
 		t.Fatalf("failed to decode /api/explain DAG: %v", err)
 	}
+
+	// 6. Test /api/query-log
+	req = httptest.NewRequest("GET", "/api/query-log?filter=slow&limit=5", nil)
+	rr = httptest.NewRecorder()
+	routes.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK from /api/query-log, got %d", rr.Code)
+	}
+	var qLog models.QueryLogResponse
+	if err := json.NewDecoder(rr.Body).Decode(&qLog); err != nil || len(qLog.Entries) == 0 {
+		t.Fatalf("failed to decode /api/query-log: %v", err)
+	}
+
+	// 7. Test /api/benchmark-codec
+	benchBody := `{"database": "telemetry", "table": "events", "column": "event_time"}`
+	req = httptest.NewRequest("POST", "/api/benchmark-codec", strings.NewReader(benchBody))
+	req.Header.Set("Content-Type", "application/json")
+	rr = httptest.NewRecorder()
+	routes.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK from /api/benchmark-codec, got %d", rr.Code)
+	}
+	var bResp models.CodecBenchmarkResponse
+	if err := json.NewDecoder(rr.Body).Decode(&bResp); err != nil || len(bResp.Results) == 0 {
+		t.Fatalf("failed to decode /api/benchmark-codec: %v", err)
+	}
+
+	// 8. Test /api/report
+	req = httptest.NewRequest("GET", "/api/report?database=telemetry&table=events", nil)
+	rr = httptest.NewRecorder()
+	routes.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK from /api/report, got %d", rr.Code)
+	}
+	var rep models.HealthAuditReport
+	if err := json.NewDecoder(rr.Body).Decode(&rep); err != nil || len(rep.MarkdownContent) == 0 {
+		t.Fatalf("failed to decode /api/report: %v", err)
+	}
 }

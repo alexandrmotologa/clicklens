@@ -314,19 +314,34 @@ func (s *Simulator) GetTableParts(database, table string) models.TablePartsRespo
 		healthRating = "DEGRADED"
 	}
 
+	// Calculate realistic simulated part age buckets
+	ageBuckets := []models.AgeBucket{
+		{Label: "< 5 min", PartCount: 14, TotalRows: 840000, TotalBytes: 68400000},
+		{Label: "5-30 min", PartCount: 10, TotalRows: 720000, TotalBytes: 82000000},
+		{Label: "30m-2h", PartCount: 4, TotalRows: 480000, TotalBytes: 64000000},
+		{Label: "2h-24h", PartCount: 6, TotalRows: 1200000, TotalBytes: 145000000},
+		{Label: "> 24h", PartCount: 3, TotalRows: 2400000, TotalBytes: 310000000},
+	}
+
+	microBatchingWarning := true
+	microBatchingDetails := "High ingestion frequency detected: 14 active parts created in the last 5 minutes. Consider using buffer tables or streaming batches to avoid write throttling."
+
 	return models.TablePartsResponse{
-		Database:           database,
-		Table:              table,
-		Engine:             "MergeTree",
-		TotalActiveParts:   totalActive,
-		TotalInactiveParts: totalInactive,
-		TotalBytesOnDisk:   totalDiskBytes,
-		TotalUncompressed:  totalUncompressedBytes,
-		OverallRatio:       overallRatio,
-		MaxPartsPartition:  "202610",
-		MaxPartCount:       28,
-		HealthRating:       healthRating,
-		Partitions:         partitions,
+		Database:             database,
+		Table:                table,
+		Engine:               "MergeTree",
+		TotalActiveParts:     totalActive,
+		TotalInactiveParts:   totalInactive,
+		TotalBytesOnDisk:     totalDiskBytes,
+		TotalUncompressed:    totalUncompressedBytes,
+		OverallRatio:         overallRatio,
+		MaxPartsPartition:    "202610",
+		MaxPartCount:         28,
+		HealthRating:         healthRating,
+		PartAgeBuckets:       ageBuckets,
+		MicroBatchingWarning: microBatchingWarning,
+		MicroBatchingDetails: microBatchingDetails,
+		Partitions:           partitions,
 	}
 }
 
@@ -491,14 +506,42 @@ func (s *Simulator) GetColumnsAudit(database, table string) models.TableColumnsR
 		potSavings += col.ProjectedSavingsBytes
 	}
 
+	migrationScript := fmt.Sprintf(`-- ==============================================================================
+-- Zero-Downtime Codec Migration Playbook for %s.%s
+-- Generated automatically by ClickLens Studio
+-- ==============================================================================
+
+-- Step 1: Create a staging shadow table with the existing schema
+CREATE TABLE IF NOT EXISTS %s.%s_new AS %s.%s;
+
+-- Step 2: Apply optimized compression codecs to new table definition
+ALTER TABLE %s.%s_new MODIFY COLUMN event_time DateTime64(3) CODEC(DoubleDelta, ZSTD(1));
+ALTER TABLE %s.%s_new MODIFY COLUMN seq_id UInt64 CODEC(T64, ZSTD(1));
+ALTER TABLE %s.%s_new MODIFY COLUMN cpu_usage Float64 CODEC(Gorilla, ZSTD(1));
+ALTER TABLE %s.%s_new MODIFY COLUMN host LowCardinality(String) CODEC(ZSTD(3));
+ALTER TABLE %s.%s_new MODIFY COLUMN payload_json String CODEC(ZSTD(6));
+
+-- Step 3: Populate new table with compressed data partition by partition
+-- (Run during low-traffic windows or batch by month)
+INSERT INTO %s.%s_new SELECT * FROM %s.%s;
+
+-- Step 4: Atomic zero-downtime swap of tables (seamless to active queries)
+EXCHANGE TABLES %s.%s AND %s.%s_new;
+
+-- Step 5: Verify row counts and drop the old legacy uncompressed table
+-- SELECT count() FROM %s.%s;
+-- DROP TABLE %s.%s_new;
+`, database, table, database, table, database, table, database, table, database, table, database, table, database, table, database, table, database, table, database, table, database, table, database, table, database, table, database, table)
+
 	return models.TableColumnsResponse{
-		Database:          database,
-		Table:             table,
-		TotalColumns:      len(columns),
-		TotalCompressed:   totalComp,
-		TotalUncompressed: totalUncomp,
-		PotentialSavings:  potSavings,
-		Columns:           columns,
+		Database:                    database,
+		Table:                       table,
+		TotalColumns:                len(columns),
+		TotalCompressed:             totalComp,
+		TotalUncompressed:           totalUncomp,
+		PotentialSavings:            potSavings,
+		ZeroDowntimeMigrationScript: migrationScript,
+		Columns:                     columns,
 	}
 }
 
@@ -604,5 +647,129 @@ ExpressionTransform × 1
 		Edges:          edges,
 		Bottlenecks:    bottlenecks,
 		SpillAlerts:    []models.SpillAlert{},
+	}
+}
+
+// GetQueryLog returns realistic simulated query log history.
+func (s *Simulator) GetQueryLog(filter string, limit int) *models.QueryLogResponse {
+	now := time.Now()
+
+	allEntries := []models.QueryLogEntry{
+		{
+			QueryID:       "q-9817bf44-32",
+			EventTime:     now.Add(-2 * time.Minute),
+			DurationMs:    18452.3,
+			MemoryUsage:   4820194816, // 4.8 GB
+			ReadRows:      48201940,
+			ReadBytes:     3841029400,
+			ResultRows:    100,
+			ResultBytes:   14200,
+			QueryText:     "SELECT host, event_type, count(), uniqExact(user_id), sum(duration_ms) FROM telemetry.events WHERE event_time >= now() - INTERVAL 7 DAY GROUP BY host, event_type ORDER BY count() DESC LIMIT 100",
+			ExceptionCode: 0,
+			HasSpill:      true,
+			Type:          "QueryFinish",
+		},
+		{
+			QueryID:       "q-7740ca91-11",
+			EventTime:     now.Add(-6 * time.Minute),
+			DurationMs:    12840.1,
+			MemoryUsage:   2940192800, // ~2.9 GB
+			ReadRows:      28491024,
+			ReadBytes:     1940291000,
+			ResultRows:    50000,
+			ResultBytes:   4920190,
+			QueryText:     "SELECT * FROM telemetry.events WHERE payload_json LIKE '%payment_error%' ORDER BY event_time DESC LIMIT 50000",
+			ExceptionCode: 0,
+			HasSpill:      false,
+			Type:          "QueryFinish",
+		},
+		{
+			QueryID:       "q-3312fe88-99",
+			EventTime:     now.Add(-14 * time.Minute),
+			DurationMs:    3410.5,
+			MemoryUsage:   10737418240, // 10 GB (hit limit)
+			ReadRows:      88102940,
+			ReadBytes:     7102948100,
+			ResultRows:    0,
+			ResultBytes:   0,
+			QueryText:     "SELECT user_id, groupArray(payload_json) FROM telemetry.events GROUP BY user_id",
+			ExceptionCode: 241,
+			Exception:     "Code: 241. DB::Exception: Memory limit (total) exceeded: would use 10.00 GiB (limit: 8.00 GiB). (MEMORY_LIMIT_EXCEEDED)",
+			HasSpill:      false,
+			Type:          "ExceptionWhileProcessing",
+		},
+		{
+			QueryID:       "q-5510ab12-05",
+			EventTime:     now.Add(-22 * time.Minute),
+			DurationMs:    8940.0,
+			MemoryUsage:   1840192000,
+			ReadRows:      18491020,
+			ReadBytes:     1240192000,
+			ResultRows:    1200,
+			ResultBytes:   84019,
+			QueryText:     "SELECT toStartOfHour(event_time) AS h, status, count() FROM analytics.orders GROUP BY h, status ORDER BY h",
+			ExceptionCode: 0,
+			HasSpill:      true,
+			Type:          "QueryFinish",
+		},
+		{
+			QueryID:       "q-1194dd77-43",
+			EventTime:     now.Add(-35 * time.Minute),
+			DurationMs:    142.1,
+			MemoryUsage:   64102940,
+			ReadRows:      0,
+			ReadBytes:     0,
+			ResultRows:    0,
+			ResultBytes:   0,
+			QueryText:     "SELECT * FROM telemetry.non_existent_table WHERE id = 12",
+			ExceptionCode: 60,
+			Exception:     "Code: 60. DB::Exception: Table telemetry.non_existent_table doesn't exist. (UNKNOWN_TABLE)",
+			HasSpill:      false,
+			Type:          "ExceptionWhileProcessing",
+		},
+		{
+			QueryID:       "q-8491bb33-67",
+			EventTime:     now.Add(-48 * time.Minute),
+			DurationMs:    6240.8,
+			MemoryUsage:   3410291000,
+			ReadRows:      14201940,
+			ReadBytes:     940291000,
+			ResultRows:    25,
+			ResultBytes:   3200,
+			QueryText:     "SELECT host, quantile(0.99)(cpu_usage) FROM telemetry.metrics WHERE event_time >= now() - INTERVAL 1 DAY GROUP BY host",
+			ExceptionCode: 0,
+			HasSpill:      false,
+			Type:          "QueryFinish",
+		},
+	}
+
+	filtered := make([]models.QueryLogEntry, 0)
+	for _, entry := range allEntries {
+		switch filter {
+		case "memory":
+			if entry.MemoryUsage > 1024*1024*1024 { // > 1 GB
+				filtered = append(filtered, entry)
+			}
+		case "spill":
+			if entry.HasSpill {
+				filtered = append(filtered, entry)
+			}
+		case "errors":
+			if entry.ExceptionCode != 0 || entry.Type == "ExceptionWhileProcessing" {
+				filtered = append(filtered, entry)
+			}
+		default: // "slow" or all
+			filtered = append(filtered, entry)
+		}
+	}
+
+	if limit > 0 && len(filtered) > limit {
+		filtered = filtered[:limit]
+	}
+
+	return &models.QueryLogResponse{
+		Filter:  filter,
+		Total:   len(filtered),
+		Entries: filtered,
 	}
 }

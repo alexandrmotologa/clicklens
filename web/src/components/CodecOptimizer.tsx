@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import type { TableColumnsResponse } from '../types';
-import { Check, Copy, Database, HardDrive, Sparkles, TrendingDown, Zap } from 'lucide-react';
+import type { TableColumnsResponse, CodecBenchmarkResponse } from '../types';
+import { 
+  Check, 
+  Copy, 
+  Database, 
+  HardDrive, 
+  Sparkles, 
+  TrendingDown, 
+  Zap, 
+  X, 
+  BarChart3, 
+  Layers, 
+  Activity
+} from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 
 interface CodecOptimizerProps {
   database: string;
@@ -11,6 +24,15 @@ export const CodecOptimizer: React.FC<CodecOptimizerProps> = ({ database, table 
   const [data, setData] = useState<TableColumnsResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [copiedCol, setCopiedCol] = useState<string | null>(null);
+  
+  // Migration Playbook state
+  const [showPlaybook, setShowPlaybook] = useState<boolean>(false);
+  const [copiedPlaybook, setCopiedPlaybook] = useState<boolean>(false);
+
+  // Live Benchmark Simulator state
+  const [benchmarkingCol, setBenchmarkingCol] = useState<string | null>(null);
+  const [benchmarkResult, setBenchmarkResult] = useState<CodecBenchmarkResponse | null>(null);
+  const [benchLoading, setBenchLoading] = useState<boolean>(false);
 
   useEffect(() => {
     async function fetchAudit() {
@@ -42,6 +64,32 @@ export const CodecOptimizer: React.FC<CodecOptimizerProps> = ({ database, table 
     navigator.clipboard.writeText(sql);
     setCopiedCol(colName);
     setTimeout(() => setCopiedCol(null), 2000);
+  };
+
+  const handleCopyPlaybook = (script: string) => {
+    navigator.clipboard.writeText(script);
+    setCopiedPlaybook(true);
+    setTimeout(() => setCopiedPlaybook(false), 2000);
+  };
+
+  const handleRunBenchmark = async (colName: string) => {
+    setBenchmarkingCol(colName);
+    setBenchLoading(true);
+    try {
+      const res = await fetch('/api/benchmark-codec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ database, table, column: colName }),
+      });
+      if (res.ok) {
+        const result: CodecBenchmarkResponse = await res.json();
+        setBenchmarkResult(result);
+      }
+    } catch (e) {
+      console.error('Benchmark failed', e);
+    } finally {
+      setBenchLoading(false);
+    }
   };
 
   if (loading && !data) {
@@ -101,17 +149,31 @@ export const CodecOptimizer: React.FC<CodecOptimizerProps> = ({ database, table 
           </div>
         </div>
 
-        <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
-            <span>Columns Analyzed</span>
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+        <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+              <span>Columns Analyzed</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            </div>
+            <div className="text-xl font-bold text-white font-mono tracking-tight">
+              {data.total_columns} columns
+            </div>
+            <div className="text-[11px] text-slate-500 mt-1">
+              {data.columns.filter((c) => c.savings_estimate_percent > 0).length} optimization opportunities
+            </div>
           </div>
-          <div className="text-xl font-bold text-white font-mono tracking-tight">
-            {data.total_columns} columns
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1">
-            {data.columns.filter((c) => c.savings_estimate_percent > 0).length} optimization opportunities
-          </div>
+
+          {data.zero_downtime_migration_script && (
+            <div className="pt-2">
+              <button
+                onClick={() => setShowPlaybook(true)}
+                className="w-full px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Migration Playbook</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -159,6 +221,15 @@ export const CodecOptimizer: React.FC<CodecOptimizerProps> = ({ database, table 
                         Optimal
                       </span>
                     )}
+
+                    <button
+                      onClick={() => handleRunBenchmark(col.column)}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Run live benchmark on candidate codecs"
+                    >
+                      <BarChart3 className="w-3 h-3" />
+                      <span>Benchmark</span>
+                    </button>
                   </div>
                 </div>
 
@@ -201,6 +272,139 @@ export const CodecOptimizer: React.FC<CodecOptimizerProps> = ({ database, table 
           })}
         </div>
       </div>
+
+      {/* Zero-Downtime Migration Playbook Modal */}
+      {showPlaybook && data.zero_downtime_migration_script && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Zero-Downtime Codec Migration Playbook</h3>
+                  <p className="text-xs text-slate-400">{database}.{table}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPlaybook(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              In ClickHouse, changing a column codec does not rewrite existing data parts automatically. 
+              This playbook uses a staging shadow table with atomic table exchange to convert 100% of historical storage with zero downtime.
+            </p>
+
+            <pre className="p-4 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-emerald-300 max-h-80 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+              {data.zero_downtime_migration_script}
+            </pre>
+
+            <div className="flex justify-between items-center pt-2">
+              <span className="text-[11px] text-slate-500">Atomic swap transparent to live queries</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleCopyPlaybook(data.zero_downtime_migration_script!)}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  {copiedPlaybook ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
+                  <span>{copiedPlaybook ? 'Playbook Copied' : 'Copy Full Playbook'}</span>
+                </button>
+                <button
+                  onClick={() => setShowPlaybook(false)}
+                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Codec Benchmark Modal */}
+      {benchmarkingCol && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <BarChart3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Live Codec Benchmark Simulator</h3>
+                  <p className="text-xs text-slate-400 font-mono">Column: {benchmarkingCol} ({database}.{table})</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setBenchmarkingCol(null);
+                  setBenchmarkResult(null);
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {benchLoading ? (
+              <div className="p-12 text-center text-slate-400">
+                <Activity className="w-6 h-6 animate-spin mx-auto mb-2 text-amber-400" />
+                <p className="text-xs">Evaluating compression algorithms on {benchmarkingCol} sample data...</p>
+              </div>
+            ) : benchmarkResult ? (
+              <div className="space-y-4">
+                <div className="h-56 w-full pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={benchmarkResult.results} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                      <XAxis dataKey="codec" tick={{ fill: '#94a3b8', fontSize: 10 }} interval={0} angle={-15} textAnchor="end" />
+                      <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: 8, fontSize: 11 }}
+                        formatter={(val: any, name: any) => [val, name === 'ratio' ? 'Compression Ratio' : name]}
+                      />
+                      <Bar dataKey="ratio" radius={[4, 4, 0, 0]}>
+                        {benchmarkResult.results.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={index === benchmarkResult.results.length - 1 ? '#10b981' : '#38bdf8'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="divide-y divide-slate-800/80 max-h-48 overflow-y-auto text-xs font-mono">
+                  {benchmarkResult.results.map((res) => (
+                    <div key={res.codec} className="py-2 flex items-center justify-between">
+                      <span className="text-slate-300 font-semibold">{res.codec}</span>
+                      <div className="flex items-center gap-4 text-slate-400 text-[11px]">
+                        <span>Size: <strong className="text-white">{formatBytes(res.compressed_bytes)}</strong></span>
+                        <span>Ratio: <strong className="text-emerald-400">{res.ratio.toFixed(2)}x</strong></span>
+                        <span>Throughput: <strong className="text-sky-400">{res.throughput_mb_s.toFixed(0)} MB/s</strong></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={() => {
+                      setBenchmarkingCol(null);
+                      setBenchmarkResult(null);
+                    }}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium cursor-pointer"
+                  >
+                    Close Benchmark
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

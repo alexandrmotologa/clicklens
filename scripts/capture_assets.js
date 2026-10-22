@@ -24,8 +24,8 @@ async function main() {
 
   await new Promise(r => setTimeout(r, 1500));
 
-  // 1. Tab: Parts & Partitions Heatmap
-  console.log('Capturing Parts Heatmap...');
+  // 1. Tab: Parts & Partitions Heatmap (with Part Age Histogram & Micro-Batching banner)
+  console.log('Capturing Parts Heatmap & Age Histogram...');
   const partsPath = path.join(outDir, 'clicklens_parts_heatmap.png');
   await page.screenshot({ path: partsPath });
 
@@ -48,7 +48,6 @@ async function main() {
     if (b) b.click();
   });
   await new Promise(r => setTimeout(r, 800));
-  // Click Profile Execution Pipeline
   await page.evaluate(() => {
     const buttons = Array.from(document.querySelectorAll('button'));
     const b = buttons.find(el => el.textContent && el.textContent.includes('Profile Execution Pipeline'));
@@ -58,7 +57,18 @@ async function main() {
   const pipelinePath = path.join(outDir, 'clicklens_pipeline_dag.png');
   await page.screenshot({ path: pipelinePath });
 
-  // 4. Tab: Codec & Compression Auditor
+  // 4. Tab: Historical Query Log
+  console.log('Switching to Historical Query Log tab...');
+  await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const b = buttons.find(el => el.textContent && el.textContent.includes('Historical Query Log'));
+    if (b) b.click();
+  });
+  await new Promise(r => setTimeout(r, 1200));
+  const queryLogPath = path.join(outDir, 'clicklens_query_log.png');
+  await page.screenshot({ path: queryLogPath });
+
+  // 5. Tab: Codec & Compression Auditor (Benchmark Simulator & Migration Playbook)
   console.log('Switching to Codec Optimizer tab...');
   await page.evaluate(() => {
     const buttons = Array.from(document.querySelectorAll('button'));
@@ -69,7 +79,25 @@ async function main() {
   const codecsPath = path.join(outDir, 'clicklens_codec_optimizer.png');
   await page.screenshot({ path: codecsPath });
 
-  // 5. Tab: Serverless Local Workbench
+  // Open Benchmark Simulator Modal
+  await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const b = buttons.find(el => el.textContent && el.textContent.includes('Benchmark'));
+    if (b) b.click();
+  });
+  await new Promise(r => setTimeout(r, 1500));
+  const benchmarkPath = path.join(outDir, 'clicklens_codec_benchmark.png');
+  await page.screenshot({ path: benchmarkPath });
+
+  // Close benchmark modal
+  await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const b = buttons.find(el => el.textContent && el.textContent.includes('Close Benchmark'));
+    if (b) b.click();
+  });
+  await new Promise(r => setTimeout(r, 500));
+
+  // 6. Tab: Serverless Local Workbench (with CSV to Parquet converter)
   console.log('Switching to Local Workbench tab...');
   await page.evaluate(() => {
     const buttons = Array.from(document.querySelectorAll('button'));
@@ -86,7 +114,35 @@ async function main() {
   const localPath = path.join(outDir, 'clicklens_local_workbench.png');
   await page.screenshot({ path: localPath });
 
-  // 6. Tab: SQL Console & Processes
+  // 7. Health Audit Diagnostic Report Modal
+  console.log('Opening Diagnostic Health Audit Report...');
+  await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const b = buttons.find(el => el.textContent && el.textContent.includes('Diagnostic Report'));
+    if (b) b.click();
+  });
+  await new Promise(r => setTimeout(r, 1200));
+  const reportPath = path.join(outDir, 'clicklens_diagnostic_report.png');
+  await page.screenshot({ path: reportPath });
+
+  // Close report modal
+  await page.keyboard.press('Escape');
+  await new Promise(r => setTimeout(r, 500));
+
+  // 8. Command Palette (Ctrl+K)
+  console.log('Opening Command Palette...');
+  await page.keyboard.down('Control');
+  await page.keyboard.press('k');
+  await page.keyboard.up('Control');
+  await new Promise(r => setTimeout(r, 800));
+  const palettePath = path.join(outDir, 'clicklens_command_palette.png');
+  await page.screenshot({ path: palettePath });
+
+  // Close command palette
+  await page.keyboard.press('Escape');
+  await new Promise(r => setTimeout(r, 500));
+
+  // 9. Tab: SQL Console & Processes
   console.log('Switching to SQL Console tab...');
   await page.evaluate(() => {
     const buttons = Array.from(document.querySelectorAll('button'));
@@ -109,8 +165,12 @@ async function main() {
     { name: 'parts', file: partsPath, durationSec: 2 },
     { name: 'merges', file: mergesPath, durationSec: 2 },
     { name: 'pipeline', file: pipelinePath, durationSec: 2 },
+    { name: 'query_log', file: queryLogPath, durationSec: 2 },
     { name: 'codecs', file: codecsPath, durationSec: 2 },
+    { name: 'benchmark', file: benchmarkPath, durationSec: 2 },
     { name: 'local', file: localPath, durationSec: 2 },
+    { name: 'report', file: reportPath, durationSec: 2 },
+    { name: 'palette', file: palettePath, durationSec: 2 },
     { name: 'console', file: consolePath, durationSec: 2 }
   ];
 

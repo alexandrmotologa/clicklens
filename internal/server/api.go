@@ -26,11 +26,15 @@ type APIHandler struct {
 	client         *client.Client
 	localRunner    *client.LocalRunner
 	fileInspector  *client.FileInspector
+	fileConverter  *client.FileConverter
 	partsInsp      *inspector.PartsInspector
 	mergesInsp     *inspector.MergesInspector
 	mutationsInsp  *inspector.MutationsInspector
 	columnsInsp    *inspector.ColumnsInspector
 	processesInsp  *inspector.ProcessesInspector
+	queryLogInsp   *inspector.QueryLogInspector
+	benchmarkInsp  *inspector.CodecBenchmarkInspector
+	reportGen      *inspector.ReportGenerator
 	explainParser  *profiler.ExplainParser
 	memoryTracker  *profiler.MemoryTracker
 
@@ -42,16 +46,23 @@ type APIHandler struct {
 func NewAPIHandler(c *client.Client) *APIHandler {
 	lr := client.NewLocalRunner()
 	fi := client.NewFileInspector(lr)
+	fc := client.NewFileConverter(lr)
+	pi := inspector.NewPartsInspector(c)
+	ci := inspector.NewColumnsInspector(c)
 
 	h := &APIHandler{
 		client:        c,
 		localRunner:   lr,
 		fileInspector: fi,
-		partsInsp:     inspector.NewPartsInspector(c),
+		fileConverter: fc,
+		partsInsp:     pi,
 		mergesInsp:    inspector.NewMergesInspector(c),
 		mutationsInsp: inspector.NewMutationsInspector(c),
-		columnsInsp:   inspector.NewColumnsInspector(c),
+		columnsInsp:   ci,
 		processesInsp: inspector.NewProcessesInspector(c),
+		queryLogInsp:  inspector.NewQueryLogInspector(c),
+		benchmarkInsp: inspector.NewCodecBenchmarkInspector(c),
+		reportGen:     inspector.NewReportGenerator(c, pi, ci),
 		explainParser: profiler.NewExplainParser(c),
 		memoryTracker: profiler.NewMemoryTracker(c),
 		wsClients:     make(map[*websocket.Conn]bool),
@@ -401,6 +412,90 @@ func (h *APIHandler) HandleLocalQuery(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.writeJSON(w, http.StatusOK, result)
+}
+
+// HandleQueryLog retrieves historical queries from system.query_log.
+func (h *APIHandler) HandleQueryLog(w http.ResponseWriter, r *http.Request) {
+	filter := r.URL.Query().Get("filter")
+	limit := 30
+	if l := r.URL.Query().Get("limit"); l != "" {
+		var parsed int
+		if _, err := fmt.Sscanf(l, "%d", &parsed); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	res, err := h.queryLogInsp.GetQueryLog(ctx, filter, limit)
+	if err != nil {
+		h.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, res)
+}
+
+// HandleBenchmarkCodec executes simulated or live compression benchmarks for a column.
+func (h *APIHandler) HandleBenchmarkCodec(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Database string `json:"database"`
+		Table    string `json:"table"`
+		Column   string `json:"column"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Column == "" {
+		h.writeError(w, http.StatusBadRequest, "Missing column in request body")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	res, err := h.benchmarkInsp.BenchmarkColumn(ctx, req.Database, req.Table, req.Column)
+	if err != nil {
+		h.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, res)
+}
+
+// HandleConvert converts tabular files (CSV/TSV) into Parquet format.
+func (h *APIHandler) HandleConvert(w http.ResponseWriter, r *http.Request) {
+	var req models.FileConvertRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.SourcePath == "" {
+		h.writeError(w, http.StatusBadRequest, "Missing source_path in request body")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	res, err := h.fileConverter.ConvertFile(ctx, req)
+	if err != nil {
+		h.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, res)
+}
+
+// HandleReport generates a diagnostic audit report in struct and markdown format.
+func (h *APIHandler) HandleReport(w http.ResponseWriter, r *http.Request) {
+	db := r.URL.Query().Get("database")
+	tbl := r.URL.Query().Get("table")
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	report, err := h.reportGen.GenerateReport(ctx, db, tbl)
+	if err != nil {
+		h.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, report)
 }
 
 // HandleLocalRunnerStatus returns clickhouse-local availability.

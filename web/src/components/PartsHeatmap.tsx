@@ -119,6 +119,62 @@ export const PartsHeatmap: React.FC<PartsHeatmapProps> = ({ data, loading }) => 
         </div>
       </div>
 
+      {/* Micro-Batching Ingestion Anomaly Banner */}
+      {data.micro_batching_warning && (
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-xs">
+            <span className="font-semibold text-amber-200">Ingestion Micro-Batching Anomaly Detected: </span>
+            <span className="text-amber-300/90 leading-relaxed block mt-0.5">
+              {data.micro_batching_details || 'High frequency inserts are generating too many small parts in short intervals. Consider buffering inserts or batching streaming writes to prevent MergeTree write throttling.'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Part Age Distribution Histogram */}
+      {data.part_age_buckets && data.part_age_buckets.length > 0 && (
+        <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-white">Part Age Histogram & Ingestion Profile</span>
+            <span className="text-[11px] text-slate-400">Time since part creation or merge</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
+            {data.part_age_buckets.map((bucket) => {
+              const maxCount = Math.max(...(data.part_age_buckets?.map((b) => b.part_count) || [1]));
+              const pct = maxCount > 0 ? (bucket.part_count / maxCount) * 100 : 0;
+              const isRecent = bucket.label.includes('5 min') || bucket.label.includes('30 min');
+
+              return (
+                <div key={bucket.label} className="p-3 bg-slate-950/70 rounded-lg border border-slate-800/80">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                    <span className="font-medium text-slate-300">{bucket.label}</span>
+                    <span className={`font-mono font-bold ${isRecent && bucket.part_count > 10 ? 'text-amber-400' : 'text-sky-400'}`}>
+                      {bucket.part_count} parts
+                    </span>
+                  </div>
+
+                  <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden mb-2">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        isRecent && bucket.part_count > 10 ? 'bg-amber-400' : 'bg-sky-500'
+                      }`}
+                      style={{ width: `${Math.max(4, pct)}%` }}
+                    />
+                  </div>
+
+                  <div className="text-[10px] text-slate-500 flex justify-between font-mono">
+                    <span>{bucket.total_rows.toLocaleString()} rows</span>
+                    <span>{formatBytes(bucket.total_bytes)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Partition Health Warning Banner (if needed) */}
       {data.max_part_count > 100 && (
         <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-800/60 flex items-start gap-3">

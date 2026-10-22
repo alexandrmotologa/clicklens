@@ -7,6 +7,7 @@
     <a href="#quick-start">Quick Start</a> &bull;
     <a href="#core-capabilities">Capabilities</a> &bull;
     <a href="#cli-usage">CLI Usage</a> &bull;
+    <a href="#screenshots">Screenshots</a> &bull;
     <a href="#architecture">Architecture</a> &bull;
     <a href="#license">License</a>
   </p>
@@ -20,39 +21,67 @@ ClickLens provides low-level operational visibility into ClickHouse storage mech
 
 ## Core Capabilities
 
-### 1. MergeTree Parts and Partition Diagnostics
-- Maps active and inactive data parts across table partitions.
-- Computes partition fragmentation scores, identifying partitions at risk of write stalls due to part count limits.
-- Displays marks count, row counts, disk bytes, uncompressed bytes, and modification timestamps per part.
+### 1. MergeTree Parts and Ingestion Anomaly Detection
+- Visualizes active and inactive data parts across partitions with a color-coded fragmentation meter.
+- Detects ingestion micro-batching anomalies when small parts accumulate faster than ClickHouse can merge them.
+- Provides a Part Age Distribution Histogram grouping parts into 5 time windows (< 5 min, 5-30 min, 30m-2h, 2h-24h, > 24h).
 - Generates targeted `OPTIMIZE TABLE ... PARTITION ... FINAL` queries to consolidate fragmented partitions.
 
-### 2. Real-Time Background Merge and Mutation Monitor
-- Polls `system.merges` over WebSocket connections every 500ms to monitor background merges.
-- Tracks source parts, target part name, elapsed time, progress percentage, and memory usage.
-- Measures merge read and write throughput in bytes and rows per second.
-- Monitors `system.mutations` for long-running `ALTER TABLE ... UPDATE/DELETE` statements with failure diagnostics.
+### 2. Live Background Merge and Mutation Monitor
+- Streams `system.merges` telemetry over WebSocket connections at 500ms intervals.
+- Tracks source parts, target part name, elapsed time, progress percentage, memory usage, and throughput in bytes/rows per second.
+- Monitors `system.mutations` for running `ALTER TABLE ... UPDATE/DELETE` statements with failure diagnostics.
 
 ### 3. Query Pipeline Profiler and Memory Spill Detection
-- Parses `EXPLAIN PIPELINE` output into an interactive Directed Acyclic Graph (DAG).
-- Inspects thread concurrency and stream splits/merges across pipeline operators (`FilterTransform`, `AggregatingTransform`, `SortingTransform`).
-- Flags thread fan-in bottlenecks where parallel streams collapse into single-threaded execution.
-- Detects external disk spill events when queries exceed `max_bytes_before_external_group_by` or `max_bytes_before_external_sort`.
+- Parses ClickHouse `EXPLAIN PIPELINE` output into an interactive Directed Acyclic Graph (DAG).
+- Inspects thread concurrency and stream transformations across `FilterTransform`, `AggregatingTransform`, and `SortingTransform`.
+- Detects thread fan-in choke points where parallel streams collapse into single-threaded bottlenecks.
+- Flags external memory spill risks when queries exceed `max_bytes_before_external_group_by` or `max_bytes_before_external_sort`.
 
-### 4. Column Codec and Compression Auditor
-- Inspects storage consumption across table columns using `system.columns`.
-- Calculates exact compression ratios comparing uncompressed bytes to compressed bytes on disk.
-- Generates algorithmic recommendations:
-  - Monotonic timestamps and numeric IDs: `DoubleDelta, ZSTD(1)` or `Gorilla, ZSTD(1)`.
+### 4. Historical Query Log Analytics
+- Surfaces telemetry from `system.query_log` across four operational dimensions:
+  - Slow Queries: Queries with excessive duration.
+  - Memory Spenders: High RAM allocation (> 1 GB) and peak memory tracking.
+  - Disk Spills: Queries that spilled intermediate aggregate or sort buffers to disk.
+  - Errors and OOMs: ClickHouse exceptions including `MEMORY_LIMIT_EXCEEDED` and syntax errors.
+- One-click action to transfer any historical query directly into the Query Pipeline Profiler.
+
+### 5. Column Codec Optimizer and Migration Playbook
+- Audits column storage consumption using `system.columns` and compares raw versus compressed disk bytes.
+- Recommends specialized codecs based on data types:
+  - Monotonic timestamps and numeric IDs: `DoubleDelta, ZSTD(1)` or `T64, ZSTD(1)`.
   - Floating point metrics: `Gorilla, ZSTD(1)`.
-  - Low-cardinality string columns: `LowCardinality(String)` with `ZSTD(3)`.
-  - Text payloads: `ZSTD(6)`.
-- Calculates projected disk savings and generates copyable `ALTER TABLE MODIFY COLUMN` statements.
+  - Repetitive text: `LowCardinality(String)` with `ZSTD(3)`.
+  - Unstructured text and JSON: `ZSTD(6)`.
+- Live Codec Compression Benchmark Simulator: Measures compression ratio and MB/s throughput across candidate codecs.
+- Zero-Downtime Migration Playbook Generator: Generates an atomic 5-step SQL playbook using shadow tables (`table_new`, `INSERT INTO ... SELECT`, `EXCHANGE TABLES`) so data is converted with zero downtime.
 
-### 5. Serverless clickhouse-local Workbench
-- Queries local files directly using `clickhouse-local` without a running ClickHouse daemon.
-- Supports Parquet, CSV, TSV, JSONEachRow, and Arrow formats.
-- Extracts schema, column datatypes, and row counts instantly.
-- Includes pure Go Parquet metadata fallback inspection when `clickhouse-local` is not installed on the host.
+### 6. Serverless Local File Workbench and Converter
+- Inspects and queries local analytical files without a running ClickHouse server.
+- Supports Parquet, CSV, TSV, and JSON formats.
+- In-memory tabular file converter: Converts CSV and TSV files into compressed Parquet (`SNAPPY` or `ZSTD`) using native ClickHouse-local execution with a pure Go fallback engine.
+
+### 7. Health Diagnostic Report and Command Palette
+- Compiles an end-to-end ClickHouse cluster health audit into downloadable Markdown (`.md`) and JSON (`.json`) reports.
+- Includes a Command Palette (`Ctrl+K` or `Cmd+K`) for rapid navigation across tables, views, and studio diagnostics.
+
+---
+
+## Screenshots
+
+<div align="center">
+  <p><strong>Historical Query Log Analytics</strong></p>
+  <img src="docs/images/clicklens_query_log.png" width="900" alt="Query Log Analytics" />
+  <br/><br/>
+  <p><strong>Live Codec Benchmark Simulator</strong></p>
+  <img src="docs/images/clicklens_codec_benchmark.png" width="900" alt="Codec Benchmark Simulator" />
+  <br/><br/>
+  <p><strong>Cluster Health Diagnostic Report Export</strong></p>
+  <img src="docs/images/clicklens_diagnostic_report.png" width="900" alt="Diagnostic Audit Report" />
+  <br/><br/>
+  <p><strong>Command Palette (Ctrl+K)</strong></p>
+  <img src="docs/images/clicklens_command_palette.png" width="900" alt="Command Palette" />
+</div>
 
 ---
 
@@ -60,7 +89,7 @@ ClickLens provides low-level operational visibility into ClickHouse storage mech
 
 ### Installation
 
-Clone the repository and build the binary:
+Clone the repository and compile the single binary:
 
 ```bash
 git clone https://github.com/alexandrmotologa/clicklens.git
@@ -72,19 +101,19 @@ npm install
 npm run build
 cd ..
 
-# Build the single Go binary
+# Build the standalone Go binary (with embedded frontend)
 go build -o bin/clicklens.exe ./cmd/clicklens
 ```
 
 ### Launch the Observability Studio
 
-Run the studio connected to a local ClickHouse server:
+Run the studio connected to a live ClickHouse server:
 
 ```bash
 ./bin/clicklens.exe serve --addr :8080 --dsn "clickhouse://default:password@localhost:9000/default"
 ```
 
-If you do not have a live ClickHouse server running, launch with `--demo` to explore the full studio with realistic telemetry:
+If you do not have a live ClickHouse instance available, launch with `--demo` to explore the complete studio with simulated production telemetry:
 
 ```bash
 ./bin/clicklens.exe serve --addr :8080 --demo

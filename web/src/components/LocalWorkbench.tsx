@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import type { LocalFileProfile, QueryResult } from '../types';
-import { Database, FileCode, Play, Search, Terminal } from 'lucide-react';
+import type { LocalFileProfile, QueryResult, FileConvertResponse } from '../types';
+import { 
+  Database, 
+  FileCode, 
+  Play, 
+  Search, 
+  Terminal, 
+  ArrowRightLeft, 
+  Check, 
+  Sparkles
+} from 'lucide-react';
+
+export interface LocalWorkbenchProps {}
 
 export const LocalWorkbench: React.FC<LocalWorkbenchProps> = () => {
   const [filePath, setFilePath] = useState<string>('./testdata/sample_telemetry.csv');
@@ -14,6 +25,13 @@ export const LocalWorkbench: React.FC<LocalWorkbenchProps> = () => {
   const [queryLoading, setQueryLoading] = useState<boolean>(false);
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [runnerStatus, setRunnerStatus] = useState<{ available: boolean; binary_path: string } | null>(null);
+
+  // File Converter state
+  const [convertTarget, setConvertTarget] = useState<string>('./testdata/converted_telemetry.parquet');
+  const [compressionCodec, setCompressionCodec] = useState<'SNAPPY' | 'ZSTD'>('SNAPPY');
+  const [converting, setConverting] = useState<boolean>(false);
+  const [convertResult, setConvertResult] = useState<FileConvertResponse | null>(null);
+  const [convertError, setConvertError] = useState<string | null>(null);
 
   useEffect(() => {
     async function checkRunner() {
@@ -45,6 +63,9 @@ export const LocalWorkbench: React.FC<LocalWorkbenchProps> = () => {
       if (res.ok) {
         const data: LocalFileProfile = await res.json();
         setFileProfile(data);
+        if (targetPath.endsWith('.csv') || targetPath.endsWith('.tsv')) {
+          setConvertTarget(targetPath.replace(/\.(csv|tsv)$/i, '.parquet'));
+        }
       } else {
         const errData = await res.json();
         setError(errData.error || 'Failed to inspect file');
@@ -81,6 +102,38 @@ export const LocalWorkbench: React.FC<LocalWorkbenchProps> = () => {
     }
   };
 
+  const handleConvertFile = async () => {
+    if (!filePath.trim()) return;
+    setConverting(true);
+    setConvertError(null);
+    setConvertResult(null);
+
+    try {
+      const res = await fetch('/api/local/convert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_path: filePath,
+          target_path: convertTarget,
+          target_format: 'Parquet',
+          compression: compressionCodec,
+        }),
+      });
+
+      if (res.ok) {
+        const data: FileConvertResponse = await res.json();
+        setConvertResult(data);
+      } else {
+        const err = await res.json();
+        setConvertError(err.error || 'Conversion failed');
+      }
+    } catch (e: any) {
+      setConvertError(e.message || 'Conversion network error');
+    } finally {
+      setConverting(false);
+    }
+  };
+
   const formatBytes = (bytes: number) => {
     if (!bytes || bytes === 0) return '0 B';
     const k = 1024;
@@ -101,7 +154,7 @@ export const LocalWorkbench: React.FC<LocalWorkbenchProps> = () => {
             <div>
               <h3 className="text-sm font-semibold text-white">Serverless Local File Workbench</h3>
               <p className="text-xs text-slate-400">
-                Inspect and query Parquet, CSV, and TSV files locally without running a ClickHouse server daemon
+                Inspect, query, and convert Parquet, CSV, and TSV files locally without running a ClickHouse server daemon
               </p>
             </div>
           </div>
@@ -148,6 +201,89 @@ export const LocalWorkbench: React.FC<LocalWorkbenchProps> = () => {
         {error && (
           <div className="p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl text-xs text-rose-300">
             {error}
+          </div>
+        )}
+      </div>
+
+      {/* CSV/TSV to Parquet Converter Section */}
+      <div className="bg-slate-900/80 rounded-2xl border border-slate-800 p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <ArrowRightLeft className="w-4 h-4 text-emerald-400" />
+          <h4 className="text-xs font-bold text-white font-mono uppercase tracking-wider">
+            Format Converter & Optimizer (CSV/TSV → Parquet)
+          </h4>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="sm:col-span-2">
+            <label className="text-[11px] text-slate-400 block mb-1">Target Output Path (.parquet)</label>
+            <input
+              type="text"
+              value={convertTarget}
+              onChange={(e) => setConvertTarget(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] text-slate-400 block mb-1">Compression Codec</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCompressionCodec('SNAPPY')}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors ${
+                  compressionCodec === 'SNAPPY'
+                    ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/50'
+                    : 'bg-slate-950 text-slate-400 border-slate-800'
+                }`}
+              >
+                SNAPPY
+              </button>
+              <button
+                onClick={() => setCompressionCodec('ZSTD')}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors ${
+                  compressionCodec === 'ZSTD'
+                    ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/50'
+                    : 'bg-slate-950 text-slate-400 border-slate-800'
+                }`}
+              >
+                ZSTD
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            onClick={handleConvertFile}
+            disabled={converting}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            {converting ? (
+              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5" />
+            )}
+            <span>Convert to Parquet</span>
+          </button>
+        </div>
+
+        {convertResult && (
+          <div className="p-3.5 bg-emerald-950/30 border border-emerald-800/40 rounded-xl space-y-2 text-xs">
+            <div className="flex items-center gap-2 text-emerald-300 font-semibold">
+              <Check className="w-4 h-4 text-emerald-400" />
+              <span>{convertResult.message}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 font-mono text-slate-300 text-[11px] pt-1">
+              <div>Source: {formatBytes(convertResult.source_size)}</div>
+              <div>Parquet: {formatBytes(convertResult.target_size)}</div>
+              <div className="text-emerald-400 font-bold">Ratio: {convertResult.compression_ratio.toFixed(2)}x</div>
+            </div>
+          </div>
+        )}
+
+        {convertError && (
+          <div className="p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl text-xs text-rose-300 font-mono">
+            {convertError}
           </div>
         )}
       </div>
@@ -323,5 +459,3 @@ export const LocalWorkbench: React.FC<LocalWorkbenchProps> = () => {
     </div>
   );
 };
-
-export interface LocalWorkbenchProps {}

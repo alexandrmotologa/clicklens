@@ -58,6 +58,14 @@ type PartInfo struct {
 	CompressionRatio       float64   `json:"compression_ratio"`
 }
 
+// AgeBucket groups parts by how recently they were modified or ingested.
+type AgeBucket struct {
+	Label      string `json:"label"` // e.g. "< 5 min", "5-30 min", "30m-2h", "2h-24h", "> 24h"
+	PartCount  int    `json:"part_count"`
+	TotalRows  uint64 `json:"total_rows"`
+	TotalBytes uint64 `json:"total_bytes"`
+}
+
 // PartitionSummary aggregates part metrics for a partition.
 type PartitionSummary struct {
 	Partition           string     `json:"partition"`
@@ -75,18 +83,21 @@ type PartitionSummary struct {
 
 // TablePartsResponse aggregates table partition analysis.
 type TablePartsResponse struct {
-	Database           string             `json:"database"`
-	Table              string             `json:"table"`
-	Engine             string             `json:"engine"`
-	TotalActiveParts   int                `json:"total_active_parts"`
-	TotalInactiveParts int                `json:"total_inactive_parts"`
-	TotalBytesOnDisk   uint64             `json:"total_bytes_on_disk"`
-	TotalUncompressed  uint64             `json:"total_uncompressed"`
-	OverallRatio       float64            `json:"overall_ratio"`
-	MaxPartsPartition  string             `json:"max_parts_partition"`
-	MaxPartCount       int                `json:"max_part_count"`
-	HealthRating       string             `json:"health_rating"` // "HEALTHY", "DEGRADED", "CRITICAL"
-	Partitions         []PartitionSummary `json:"partitions"`
+	Database               string             `json:"database"`
+	Table                  string             `json:"table"`
+	Engine                 string             `json:"engine"`
+	TotalActiveParts       int                `json:"total_active_parts"`
+	TotalInactiveParts     int                `json:"total_inactive_parts"`
+	TotalBytesOnDisk       uint64             `json:"total_bytes_on_disk"`
+	TotalUncompressed      uint64             `json:"total_uncompressed"`
+	OverallRatio           float64            `json:"overall_ratio"`
+	MaxPartsPartition      string             `json:"max_parts_partition"`
+	MaxPartCount           int                `json:"max_part_count"`
+	HealthRating           string             `json:"health_rating"` // "HEALTHY", "DEGRADED", "CRITICAL"
+	PartAgeBuckets         []AgeBucket        `json:"part_age_buckets"`
+	MicroBatchingWarning   bool               `json:"micro_batching_warning"`
+	MicroBatchingDetails   string             `json:"micro_batching_details"`
+	Partitions             []PartitionSummary `json:"partitions"`
 }
 
 // MergeInfo represents active background merges from system.merges.
@@ -140,13 +151,34 @@ type ColumnAudit struct {
 
 // TableColumnsResponse holds column compression audit results.
 type TableColumnsResponse struct {
-	Database          string        `json:"database"`
-	Table             string        `json:"table"`
-	TotalColumns      int           `json:"total_columns"`
-	TotalCompressed   uint64        `json:"total_compressed_bytes"`
-	TotalUncompressed uint64        `json:"total_uncompressed_bytes"`
-	PotentialSavings  uint64        `json:"potential_savings_bytes"`
-	Columns           []ColumnAudit `json:"columns"`
+	Database                      string        `json:"database"`
+	Table                         string        `json:"table"`
+	TotalColumns                  int           `json:"total_columns"`
+	TotalCompressed               uint64        `json:"total_compressed_bytes"`
+	TotalUncompressed             uint64        `json:"total_uncompressed_bytes"`
+	PotentialSavings              uint64        `json:"potential_savings_bytes"`
+	ZeroDowntimeMigrationScript   string        `json:"zero_downtime_migration_script"`
+	Columns                       []ColumnAudit `json:"columns"`
+}
+
+// CodecBenchmarkItem holds the live benchmark metrics of a specific codec.
+type CodecBenchmarkItem struct {
+	Codec             string  `json:"codec"`
+	CompressedBytes   uint64  `json:"compressed_bytes"`
+	Ratio             float64 `json:"ratio"`
+	CompressTimeMs    float64 `json:"compress_time_ms"`
+	DecompressTimeMs  float64 `json:"decompress_time_ms"`
+	ThroughputMBs     float64 `json:"throughput_mb_s"`
+}
+
+// CodecBenchmarkResponse holds the results of benchmarking multiple codecs on sample column data.
+type CodecBenchmarkResponse struct {
+	Database       string               `json:"database"`
+	Table          string               `json:"table"`
+	Column         string               `json:"column"`
+	OriginalBytes  uint64               `json:"original_bytes"`
+	SampleRows     int                  `json:"sample_rows"`
+	Results        []CodecBenchmarkItem `json:"results"`
 }
 
 // ProcessInfo represents an active query from system.processes.
@@ -160,6 +192,30 @@ type ProcessInfo struct {
 	MemoryUsage    uint64  `json:"memory_usage"`
 	PeakMemory     uint64  `json:"peak_memory_usage"`
 	Query          string  `json:"query"`
+}
+
+// QueryLogEntry represents historical query telemetry from system.query_log.
+type QueryLogEntry struct {
+	QueryID        string    `json:"query_id"`
+	EventTime      time.Time `json:"event_time"`
+	DurationMs     float64   `json:"duration_ms"`
+	MemoryUsage    uint64    `json:"memory_usage"`
+	ReadRows       uint64    `json:"read_rows"`
+	ReadBytes      uint64    `json:"read_bytes"`
+	ResultRows     uint64    `json:"result_rows"`
+	ResultBytes    uint64    `json:"result_bytes"`
+	QueryText      string    `json:"query_text"`
+	ExceptionCode  int       `json:"exception_code"`
+	Exception      string    `json:"exception,omitempty"`
+	HasSpill       bool      `json:"has_spill"`
+	Type           string    `json:"type"` // "QueryFinish", "ExceptionWhileProcessing"
+}
+
+// QueryLogResponse returns filtered query history.
+type QueryLogResponse struct {
+	Filter  string          `json:"filter"`
+	Total   int             `json:"total"`
+	Entries []QueryLogEntry `json:"entries"`
 }
 
 // DAGNode represents a step in EXPLAIN PIPELINE or EXPLAIN PLAN.
@@ -243,6 +299,45 @@ type QueryResult struct {
 	BytesRead       uint64           `json:"bytes_read"`
 	RowsRead        uint64           `json:"rows_read"`
 	Error           string           `json:"error,omitempty"`
+}
+
+// FileConvertRequest defines arguments for file format conversion.
+type FileConvertRequest struct {
+	SourcePath   string `json:"source_path"`
+	TargetPath   string `json:"target_path"`
+	TargetFormat string `json:"target_format"` // "Parquet", "CSV", "TSV"
+	Compression  string `json:"compression"`   // "ZSTD", "SNAPPY", "NONE"
+}
+
+// FileConvertResponse holds the outcome of a file conversion.
+type FileConvertResponse struct {
+	Success          bool    `json:"success"`
+	SourceSize       int64   `json:"source_size"`
+	TargetSize       int64   `json:"target_size"`
+	CompressionRatio float64 `json:"compression_ratio"`
+	TargetPath       string  `json:"target_path"`
+	Message          string  `json:"message"`
+}
+
+// HealthAuditReport contains a diagnostic audit ready for export.
+type HealthAuditReport struct {
+	GeneratedAt        time.Time `json:"generated_at"`
+	Database           string    `json:"database"`
+	Table              string    `json:"table"`
+	ServerVersion      string    `json:"server_version"`
+	OverallHealth      string    `json:"overall_health"`
+	ActiveParts        int       `json:"active_parts"`
+	PartitionCount     int       `json:"partition_count"`
+	MaxPartsPartition  string    `json:"max_parts_partition"`
+	MaxPartCount       int       `json:"max_part_count"`
+	DiskBytes          uint64    `json:"disk_bytes"`
+	UncompressedBytes  uint64    `json:"uncompressed_bytes"`
+	OverallRatio       float64   `json:"overall_ratio"`
+	PotentialSavings   uint64    `json:"potential_savings_bytes"`
+	MicroBatchingRisk  bool      `json:"micro_batching_risk"`
+	Bottlenecks        []string  `json:"bottlenecks"`
+	TopRecommendations []string  `json:"top_recommendations"`
+	MarkdownContent    string    `json:"markdown_content"`
 }
 
 // TelemetryWebSocketMessage defines the live stream payload over WebSocket.

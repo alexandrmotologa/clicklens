@@ -8,18 +8,23 @@ import { PipelineGraph } from './components/PipelineGraph';
 import { CodecOptimizer } from './components/CodecOptimizer';
 import { LocalWorkbench } from './components/LocalWorkbench';
 import { QueryConsole } from './components/QueryConsole';
-import { Cpu, Database, Flame, HardDrive, Layers, Terminal } from 'lucide-react';
+import { QueryLogViewer } from './components/QueryLogViewer';
+import { CommandPalette } from './components/CommandPalette';
+import { Cpu, Database, Flame, HardDrive, Layers, Terminal, Clock } from 'lucide-react';
 
 export function App() {
   const { merges, status, refetchStatus, refetchMerges } = useClickHouseStream();
 
-  const [activeTab, setActiveTab] = useState<'PARTS' | 'MERGES' | 'PIPELINE' | 'CODECS' | 'LOCAL' | 'CONSOLE'>('PARTS');
+  const [activeTab, setActiveTab] = useState<'PARTS' | 'MERGES' | 'PIPELINE' | 'CODECS' | 'LOGS' | 'LOCAL' | 'CONSOLE'>('PARTS');
   const [databases, setDatabases] = useState<DatabaseInfo[]>([]);
   const [selectedDb, setSelectedDb] = useState<string>('telemetry');
   const [selectedTable, setSelectedTable] = useState<string>('events');
 
   const [partsData, setPartsData] = useState<TablePartsResponse | null>(null);
   const [loadingParts, setLoadingParts] = useState<boolean>(true);
+
+  // Command palette state
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // Load databases
   const fetchDatabases = useCallback(async () => {
@@ -65,6 +70,18 @@ export function App() {
       fetchParts(selectedDb, selectedTable);
     }
   }, [selectedDb, selectedTable, fetchParts]);
+
+  // Listen for Ctrl+K / Cmd+K global shortcut
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   const handleConnect = async (dsn: string) => {
     try {
@@ -125,6 +142,18 @@ export function App() {
     }
   };
 
+  const handleNavigateFromCommand = (tabName: string) => {
+    switch (tabName) {
+      case 'parts': setActiveTab('PARTS'); break;
+      case 'merges': setActiveTab('MERGES'); break;
+      case 'codecs': setActiveTab('CODECS'); break;
+      case 'profiler': setActiveTab('PIPELINE'); break;
+      case 'query-log': setActiveTab('LOGS'); break;
+      case 'workbench': setActiveTab('LOCAL'); break;
+      case 'console': setActiveTab('CONSOLE'); break;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-sky-500/30 selection:text-sky-200">
       <Header
@@ -140,6 +169,7 @@ export function App() {
           refetchMerges();
           fetchParts(selectedDb, selectedTable);
         }}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
       />
 
       {/* Main Tab Navigation */}
@@ -182,6 +212,18 @@ export function App() {
           >
             <Cpu className="w-3.5 h-3.5" />
             <span>Query Pipeline DAG</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('LOGS')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+              activeTab === 'LOGS'
+                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm shadow-purple-500/10'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>Historical Query Log</span>
           </button>
 
           <button
@@ -233,6 +275,9 @@ export function App() {
         {activeTab === 'PIPELINE' && (
           <PipelineGraph onProfileQuery={handleProfileQuery} />
         )}
+        {activeTab === 'LOGS' && (
+          <QueryLogViewer onSelectQueryForProfile={(_sql) => setActiveTab('PIPELINE')} />
+        )}
         {activeTab === 'CODECS' && (
           <CodecOptimizer database={selectedDb} table={selectedTable} />
         )}
@@ -242,6 +287,23 @@ export function App() {
         )}
       </main>
 
+      {/* Command Palette Modal */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onNavigateTab={handleNavigateFromCommand}
+        onOpenReport={() => {
+          // Open report via triggering click on header button or state
+          const reportBtn = document.querySelector('button[title*="diagnostic audit"]') as HTMLButtonElement;
+          if (reportBtn) reportBtn.click();
+        }}
+        onToggleDemo={() => handleConnect('demo')}
+        onSelectTable={(db, tbl) => {
+          setSelectedDb(db);
+          setSelectedTable(tbl);
+        }}
+      />
+
       {/* Subtle Footer */}
       <footer className="border-t border-slate-900 bg-[#070b13] px-6 py-4 text-center text-xs text-slate-500 font-mono">
         ClickLens &bull; Local ClickHouse Observability Studio &bull; Go 1.23 + React 19
@@ -249,4 +311,5 @@ export function App() {
     </div>
   );
 }
+
 export default App;

@@ -62,31 +62,36 @@ clicklens/
 |   |   |-- native.go               # ClickHouse native TCP/HTTP driver
 |   |   |-- local_runner.go         # clickhouse-local execution wrapper
 |   |   |-- file_inspector.go       # Pure Go Parquet and CSV schema reader
+|   |   |-- converter.go            # CSV/TSV to compressed Parquet converter
 |   |   `-- simulator.go            # Realistic in-memory telemetry provider
 |   |-- inspector/
-|   |   |-- parts.go                # system.parts scanner and partition health
+|   |   |-- parts.go                # system.parts scanner, age buckets & micro-batching
 |   |   |-- merges.go               # system.merges real-time tracker
 |   |   |-- mutations.go            # system.mutations observer
-|   |   |-- columns.go              # system.columns compression auditor
+|   |   |-- columns.go              # system.columns compression auditor & playbook
+|   |   |-- benchmark.go            # Live codec benchmark simulator
+|   |   |-- query_log.go            # system.query_log multi-filter inspector
+|   |   |-- report.go               # Cluster health diagnostic report generator
 |   |   `-- processes.go            # system.processes active queries
 |   |-- profiler/
 |   |   |-- explain_parser.go       # EXPLAIN PIPELINE and PLAN parser
-|   |   |-- memory_tracker.go       # Memory allocation and spill detector
-|   |   `-- query_log.go            # system.query_log correlation
+|   |   `-- memory_tracker.go       # Memory allocation and spill detector
 |   `-- server/
 |       |-- api.go                  # REST and WebSocket HTTP handler
 |       |-- routes.go               # Router registration
-|       `-- static.go               # Embedded React 19 single-binary server
+|       |-- static.go               # Embedded React 19 single-binary server
+|       `-- web_dist/               # Embedded production React frontend
 |-- web/
 |   |-- src/
 |   |   |-- components/
-|   |   |   |-- Header.tsx          # Connection switcher and status
-|   |   |   |-- PartsHeatmap.tsx    # Partition and data parts visual grid
+|   |   |   |-- Header.tsx          # Connection switcher, status & diagnostic report
+|   |   |   |-- PartsHeatmap.tsx    # Partition grid, age histogram & anomaly banner
 |   |   |   |-- MergesMonitor.tsx   # Real-time merge progress and throughput
 |   |   |   |-- PipelineGraph.tsx   # Thread execution stream DAG viewer
-|   |   |   |-- CodecOptimizer.tsx  # Column compression savings calculator
-|   |   |   |-- MutationsViewer.tsx # ALTER TABLE progress monitor
-|   |   |   |-- LocalWorkbench.tsx  # Serverless Parquet and CSV explorer
+|   |   |   |-- CodecOptimizer.tsx  # Codecs, benchmark simulator & migration playbook
+|   |   |   |-- QueryLogViewer.tsx  # Historical query log analytics
+|   |   |   |-- LocalWorkbench.tsx  # Serverless file inspector & converter
+|   |   |   |-- CommandPalette.tsx  # Ctrl+K modal quick jump
 |   |   |   `-- QueryConsole.tsx    # Interactive SQL editor with EXPLAIN
 |   |   |-- hooks/
 |   |   |   `-- useClickHouseStream.ts
@@ -99,7 +104,8 @@ clicklens/
 |   `-- vite.config.ts
 |-- docs/
 |   |-- images/
-|   |   `-- clicklens_demo.gif
+|   |   |-- clicklens_demo.gif
+|   |   `-- clicklens_*.png
 |   `-- ARCHITECTURE.md
 |-- go.mod
 |-- go.sum
@@ -110,103 +116,56 @@ clicklens/
 
 ---
 
-## 3. Detailed Work Breakdown
+## 3. Detailed Work Breakdown & Status
 
-### Task 1: Repository Foundation, Documentation and Go Module
-- Initialize Go module `github.com/alexandrmotologa/clicklens` targeting Go 1.23.
-- Write production README.md adhering to the humanizer discipline.
-- Document architectural specifications in `docs/ARCHITECTURE.md`.
-- Generate project logo SVG for README header.
+- [x] **Task 1: Repository Foundation, Documentation and Go Module**
+  - Go module `github.com/alexandrmotologa/clicklens` initialized.
+  - Public GitHub repository created with 13 domain topics.
+  - Factual README.md adhering to humanizer guidelines.
+  - Complete architecture specification in `docs/ARCHITECTURE.md`.
+  - Scalable vector mascot logo in `assets/logo.svg`.
 
-### Task 2: ClickHouse Client and Connection Subsystem
-- Implement `internal/client/native.go`:
-  - Native TCP connection via `clickhouse-go/v2` (port 9000).
-  - HTTP protocol support (port 8123).
-  - Dynamic DSN parser with credentials and TLS options.
-  - Connection ping and version discovery (`SELECT version()`).
-- Implement `internal/client/simulator.go`:
-  - Built-in realistic dataset generator representing multi-partition MergeTree tables, active merges, mutations, and query logs.
-  - Activated via `--demo` CLI flag or when no ClickHouse server is reachable, enabling complete end-to-end functionality verification.
-- Implement `internal/client/local_runner.go` and `file_inspector.go`:
-  - Locate `clickhouse-local` in system PATH, WSL, or custom binaries.
-  - Execute queries against local Parquet, CSV, and JSON files without a server.
-  - Include native Go Parquet metadata parser for schema and row count extraction when clickhouse-local is not present.
+- [x] **Task 2: ClickHouse Client and Connection Subsystem**
+  - Native TCP connection via `clickhouse-go/v2`.
+  - Realistic in-memory simulator (`internal/client/simulator.go`) for zero-dependency operation.
+  - `clickhouse-local` process runner and pure Go `parquet-go` fallback.
 
-### Task 3: MergeTree Storage and Background Operations Inspector
-- Implement `internal/inspector/parts.go`:
-  - Query `system.parts` for partition, name, active, bytes_on_disk, data_uncompressed_bytes, marks, rows, modification_time.
-  - Calculate partition health scores: part counts, average part size, inactive parts backlog.
-  - Generate partition optimization SQL statements (`OPTIMIZE TABLE ... FINAL`).
-- Implement `internal/inspector/merges.go`:
-  - Query `system.merges` for database, table, elapsed, progress, num_parts, source parts, result part name.
-  - Compute merge read/write throughput in bytes and rows per second.
-- Implement `internal/inspector/mutations.go`:
-  - Query `system.mutations` for mutation_id, command, create_time, parts_to_do, is_done, latest_fail_reason.
-- Implement `internal/inspector/processes.go`:
-  - Query `system.processes` for active running queries, memory usage, elapsed time, and query killing.
+- [x] **Task 3: MergeTree Storage and Background Operations Inspector**
+  - Part and partition metrics computed with fragmentation scores.
+  - Real-time WebSocket streaming of `system.merges` every 500ms.
+  - Asynchronous table mutations monitoring (`system.mutations`).
 
-### Task 4: Column Codec and Compression Auditor
-- Implement `internal/inspector/columns.go`:
-  - Read column statistics from `system.columns`: data_compressed_bytes, data_uncompressed_bytes, compression_codec, type.
-  - Compute compression ratio and savings potential.
-  - Rule-based codec recommendation:
-    - Monotonic timestamps and IDs: `DoubleDelta, ZSTD(1)` or `Gorilla, ZSTD(1)`.
-    - Floating point metrics: `Gorilla, ZSTD(1)`.
-    - Low-cardinality strings: `LowCardinality(String)` with `ZSTD(3)`.
-    - High-entropy payloads: `ZSTD(6)`.
-  - Generate actionable `ALTER TABLE ... MODIFY COLUMN ... CODEC(...)` SQL commands.
+- [x] **Task 4: Column Codec and Compression Auditor**
+  - Ratio calculator comparing raw and compressed bytes.
+  - Type-aware heuristic recommendation engine.
 
-### Task 5: Query Pipeline Profiler (`EXPLAIN PIPELINE` DAG)
-- Implement `internal/profiler/explain_parser.go`:
-  - Execute and parse output from `EXPLAIN PIPELINE` and `EXPLAIN PLAN`.
-  - Convert text stream representation into a typed Directed Acyclic Graph (DAG) with nodes (steps) and edges (stream transitions).
-  - Extract parallel concurrency levels (stream counts) per stage.
-  - Detect pipeline bottlenecks: fan-in transitions where high stream counts bottleneck into a single thread.
-- Implement `internal/profiler/memory_tracker.go`:
-  - Correlate query execution with `system.query_log`.
-  - Flag memory spills (`max_bytes_before_external_group_by`, `max_bytes_before_external_sort`).
+- [x] **Task 5: Query Pipeline Profiler (`EXPLAIN PIPELINE` DAG)**
+  - Regex-free parser converting raw pipeline output into typed execution DAG.
+  - Detection of thread fan-in bottlenecks and disk spill risks.
 
-### Task 6: REST and WebSocket API Server
-- Implement `internal/server/api.go` and `routes.go`:
-  - Endpoints:
-    - `GET /api/health`: Server and ClickHouse connectivity status.
-    - `POST /api/connect`: Change active ClickHouse DSN.
-    - `GET /api/databases`: List accessible databases and tables.
-    - `GET /api/parts`: Table parts list and partition health metrics.
-    - `GET /api/merges`: Active background merges.
-    - `GET /api/mutations`: Active table mutations.
-    - `GET /api/columns`: Column compression audit and recommendations.
-    - `POST /api/explain`: Run query and return parsed pipeline DAG.
-    - `GET /api/processes`: Active running queries.
-    - `POST /api/kill`: Terminate running query.
-    - `POST /api/local/query`: Run query via clickhouse-local on local files.
-    - `POST /api/local/inspect`: Inspect schema of local Parquet or CSV file.
-    - `GET /api/ws`: WebSocket endpoint pushing real-time merges and telemetry updates.
-  - Embed compiled React 19 frontend assets via `embed.FS` in `internal/server/static.go`.
+- [x] **Task 6: REST and WebSocket API Server**
+  - Full suite of REST endpoints registered in `internal/server/routes.go`.
+  - WebSocket broadcaster for live telemetry.
+  - Embedded React 19 assets via Go `embed.FS`.
 
-### Task 7: Modern React 19 Web Studio
-- Setup Vite + React 19 + Tailwind CSS + Lucide icons + Recharts in `web/`.
-- Build application views:
-  - Header with connection status, database and table selectors, and demo mode toggle.
-  - Parts Heatmap: visual grid representing partitions, active parts, inactive parts, disk size, and health warnings.
-  - Merges Monitor: live progress bars, elapsed time, and source/result part details.
-  - Pipeline Graph: interactive visual DAG with stream counts, step types, and bottleneck badges.
-  - Codec Optimizer: interactive column audit with compression ratios, projected savings, and copyable SQL commands.
-  - Serverless Local Workbench: file picker, schema preview, and instant SQL query runner.
-  - Query Console: SQL editor with EXPLAIN PIPELINE, EXPLAIN PLAN, and execution metrics.
+- [x] **Task 7: Modern React 19 Web Studio**
+  - Dark-themed studio built with React 19, Tailwind CSS, Lucide, and Recharts.
+  - 100% functional components with zero mockups.
 
-### Task 8: CLI Commands and Tooling
-- Implement CLI subcommands in `cmd/clicklens/main.go`:
-  - `clicklens serve [--addr :8080] [--dsn ...]`
-  - `clicklens parts <database>.<table> [--dsn ...]`
-  - `clicklens merges [--dsn ...]`
-  - `clicklens audit <database>.<table> [--dsn ...]`
-  - `clicklens explain "<query>" [--dsn ...]`
-  - `clicklens profile <filepath>`
-- Provide single-binary packaging with embedded frontend.
+- [x] **Task 8: Production CLI Commands**
+  - Commands `serve`, `parts`, `merges`, `audit`, `explain`, `profile` implemented in `cmd/clicklens/main.go`.
 
-### Task 9: Verification, Tests, Visual Assets and Portfolio Sync Phase 2
-- Run Go unit tests for parser, codec calculator, and simulator.
-- Run frontend build with zero TypeScript and bundle errors.
-- Generate UI screenshots and animated demo GIF in `docs/images/`.
-- Execute Phase 2 portfolio sync: copy assets to `mtlg-site` and `mtlglabs-space`, set status to LIVE, re-compile and push.
+- [x] **Task 9: Advanced Architectural Enhancements (100% Completed)**
+  - 1. Historical Query Log Analytics (`system.query_log`) with slow, memory, spill, and error filters.
+  - 2. Part Age Distribution Histogram (5 age windows) and Ingestion Micro-Batching Anomaly Detector.
+  - 3. Zero-Downtime Codec Migration Playbook Generator (`table_new`, `INSERT INTO ... SELECT`, `EXCHANGE TABLES`).
+  - 4. Live Codec Compression Benchmark Simulator with throughput and ratio metrics.
+  - 5. Serverless Local File Converter (CSV/TSV to Parquet with SNAPPY/ZSTD).
+  - 6. Cluster Health Diagnostic Report Export in Markdown and JSON.
+  - 7. Global Command Palette (`Ctrl+K` / `Cmd+K`) with keyboard navigation.
+
+- [x] **Task 10: Verification, Assets and Dual-Portfolio Synchronization**
+  - All unit and integration tests passing (`go test ./... -v`).
+  - Frontend production build verified (`npm run build`).
+  - Headless Chrome and FFmpeg animated GIF and screenshot suite generated in `docs/images/`.
+  - Dual-portfolio sync executed across `mtlg-site` and `mtlglabs-space`.

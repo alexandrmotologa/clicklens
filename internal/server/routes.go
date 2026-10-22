@@ -24,6 +24,10 @@ func SetupRoutes(h *APIHandler) http.Handler {
 	mux.HandleFunc("/api/local/inspect", h.HandleLocalInspect)
 	mux.HandleFunc("/api/local/query", h.HandleLocalQuery)
 	mux.HandleFunc("/api/local/status", h.HandleLocalRunnerStatus)
+	mux.HandleFunc("/api/local/convert", h.HandleConvert)
+	mux.HandleFunc("/api/query-log", h.HandleQueryLog)
+	mux.HandleFunc("/api/benchmark-codec", h.HandleBenchmarkCodec)
+	mux.HandleFunc("/api/report", h.HandleReport)
 
 	// WebSocket Live Feed
 	mux.HandleFunc("/api/ws", h.HandleWebSocket)

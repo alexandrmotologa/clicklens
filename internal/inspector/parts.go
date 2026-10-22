@@ -209,18 +209,63 @@ func (pi *PartsInspector) GetTableParts(ctx context.Context, database, table str
 		healthRating = "DEGRADED"
 	}
 
+	// Calculate Part Age Buckets
+	now := time.Now()
+	ageBuckets := []models.AgeBucket{
+		{Label: "< 5 min"},
+		{Label: "5-30 min"},
+		{Label: "30m-2h"},
+		{Label: "2h-24h"},
+		{Label: "> 24h"},
+	}
+
+	recentPartCount := 0
+	for _, summary := range partitionMap {
+		for _, pt := range summary.Parts {
+			if !pt.Active {
+				continue
+			}
+			age := now.Sub(pt.ModificationTime)
+			idx := 4
+			switch {
+			case age < 5*time.Minute:
+				idx = 0
+				recentPartCount++
+			case age < 30*time.Minute:
+				idx = 1
+			case age < 2*time.Hour:
+				idx = 2
+			case age < 24*time.Hour:
+				idx = 3
+			}
+			ageBuckets[idx].PartCount++
+			ageBuckets[idx].TotalRows += pt.Rows
+			ageBuckets[idx].TotalBytes += pt.BytesOnDisk
+		}
+	}
+
+	microBatchingWarning := false
+	microBatchingDetails := ""
+	if recentPartCount >= 10 {
+		microBatchingWarning = true
+		microBatchingDetails = fmt.Sprintf("High ingestion frequency detected: %d parts created within the last 5 minutes. Consider using buffer tables or batching inserts to avoid write throttling.", recentPartCount)
+	}
+
 	return &models.TablePartsResponse{
-		Database:           database,
-		Table:              table,
-		Engine:             "MergeTree",
-		TotalActiveParts:   totalActive,
-		TotalInactiveParts: totalInactive,
-		TotalBytesOnDisk:   totalDiskBytes,
-		TotalUncompressed:  totalUncompressed,
-		OverallRatio:       overallRatio,
-		MaxPartsPartition:  maxPartition,
-		MaxPartCount:       maxPartCount,
-		HealthRating:       healthRating,
-		Partitions:         partitions,
+		Database:             database,
+		Table:                table,
+		Engine:               "MergeTree",
+		TotalActiveParts:     totalActive,
+		TotalInactiveParts:   totalInactive,
+		TotalBytesOnDisk:     totalDiskBytes,
+		TotalUncompressed:    totalUncompressed,
+		OverallRatio:         overallRatio,
+		MaxPartsPartition:    maxPartition,
+		MaxPartCount:         maxPartCount,
+		HealthRating:         healthRating,
+		PartAgeBuckets:       ageBuckets,
+		MicroBatchingWarning: microBatchingWarning,
+		MicroBatchingDetails: microBatchingDetails,
+		Partitions:           partitions,
 	}, nil
 }

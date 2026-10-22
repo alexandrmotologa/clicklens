@@ -121,15 +121,52 @@ func (ci *ColumnsInspector) AuditColumns(ctx context.Context, database, table st
 		totalSavings += projectedSavings
 	}
 
+	migrationScript := generateZeroDowntimeMigrationScript(database, table, columns)
+
 	return &models.TableColumnsResponse{
-		Database:          database,
-		Table:             table,
-		TotalColumns:      len(columns),
-		TotalCompressed:   totalComp,
-		TotalUncompressed: totalUncomp,
-		PotentialSavings:  totalSavings,
-		Columns:           columns,
+		Database:                    database,
+		Table:                       table,
+		TotalColumns:                len(columns),
+		TotalCompressed:             totalComp,
+		TotalUncompressed:           totalUncomp,
+		PotentialSavings:            totalSavings,
+		ZeroDowntimeMigrationScript: migrationScript,
+		Columns:                     columns,
 	}, nil
+}
+
+// generateZeroDowntimeMigrationScript builds an executable, zero-downtime table migration playbook.
+func generateZeroDowntimeMigrationScript(database, table string, columns []models.ColumnAudit) string {
+	var alterStatements strings.Builder
+	for _, col := range columns {
+		if col.AlterSQL != "" {
+			// Replace {table} with {table}_new
+			newAlter := strings.Replace(col.AlterSQL, fmt.Sprintf("%s.%s", database, table), fmt.Sprintf("%s.%s_new", database, table), 1)
+			alterStatements.WriteString(newAlter + "\n")
+		}
+	}
+
+	return fmt.Sprintf(`-- ==============================================================================
+-- Zero-Downtime Codec Migration Playbook for %s.%s
+-- Generated automatically by ClickLens Studio
+-- ==============================================================================
+
+-- Step 1: Create shadow staging table matching current schema
+CREATE TABLE IF NOT EXISTS %s.%s_new AS %s.%s;
+
+-- Step 2: Apply recommended compression codecs to new table definition
+%s
+-- Step 3: Populate new table with compressed data
+-- For large datasets, attach partition by partition or stream in batches:
+INSERT INTO %s.%s_new SELECT * FROM %s.%s;
+
+-- Step 4: Atomic zero-downtime swap of tables (transparent to client queries)
+EXCHANGE TABLES %s.%s AND %s.%s_new;
+
+-- Step 5: Verification & Cleanup
+-- SELECT count() FROM %s.%s;
+-- DROP TABLE %s.%s_new;
+`, database, table, database, table, database, table, alterStatements.String(), database, table, database, table, database, table, database, table, database, table, database, table)
 }
 
 // recommendCodec applies heuristics based on ClickHouse column types.

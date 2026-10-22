@@ -34,6 +34,13 @@ export interface PartInfo {
   compression_ratio: number;
 }
 
+export interface AgeBucket {
+  label: string;
+  part_count: number;
+  total_rows: number;
+  total_bytes: number;
+}
+
 export interface PartitionSummary {
   partition: string;
   active_parts: number;
@@ -60,6 +67,9 @@ export interface TablePartsResponse {
   max_parts_partition: string;
   max_part_count: number;
   health_rating: 'HEALTHY' | 'DEGRADED' | 'CRITICAL';
+  part_age_buckets?: AgeBucket[];
+  micro_batching_warning?: boolean;
+  micro_batching_details?: string;
   partitions: PartitionSummary[];
 }
 
@@ -116,7 +126,84 @@ export interface TableColumnsResponse {
   total_compressed_bytes: number;
   total_uncompressed_bytes: number;
   potential_savings_bytes: number;
+  zero_downtime_migration_script?: string;
   columns: ColumnAudit[];
+}
+
+export interface CodecBenchmarkItem {
+  codec: string;
+  compressed_bytes: number;
+  ratio: number;
+  compress_time_ms: number;
+  decompress_time_ms: number;
+  throughput_mb_s: number;
+}
+
+export interface CodecBenchmarkResponse {
+  database: string;
+  table: string;
+  column: string;
+  original_bytes: number;
+  sample_rows: number;
+  results: CodecBenchmarkItem[];
+}
+
+export interface QueryLogEntry {
+  query_id: string;
+  event_time: string;
+  duration_ms: number;
+  memory_usage: number;
+  read_rows: number;
+  read_bytes: number;
+  result_rows: number;
+  result_bytes: number;
+  query_text: string;
+  exception_code: number;
+  exception?: string;
+  has_spill: boolean;
+  type: string;
+}
+
+export interface QueryLogResponse {
+  filter: string;
+  total: number;
+  entries: QueryLogEntry[];
+}
+
+export interface FileConvertRequest {
+  source_path: string;
+  target_path?: string;
+  target_format?: string;
+  compression?: string;
+}
+
+export interface FileConvertResponse {
+  success: boolean;
+  source_size: number;
+  target_size: number;
+  compression_ratio: number;
+  target_path: string;
+  message: string;
+}
+
+export interface HealthAuditReport {
+  generated_at: string;
+  database: string;
+  table: string;
+  server_version: string;
+  overall_health: string;
+  active_parts: number;
+  partition_count: number;
+  max_parts_partition: string;
+  max_part_count: number;
+  disk_bytes: number;
+  uncompressed_bytes: number;
+  overall_ratio: number;
+  potential_savings_bytes: number;
+  micro_batching_risk: boolean;
+  bottlenecks: string[];
+  top_recommendations: string[];
+  markdown_content: string;
 }
 
 export interface DAGNode {
