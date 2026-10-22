@@ -47,8 +47,7 @@ func (ci *ColumnsInspector) AuditColumns(ctx context.Context, database, table st
 
 	rows, err := conn.Query(ctx, query, database, table)
 	if err != nil {
-		res := ci.client.Simulator().GetColumnsAudit(database, table)
-		return &res, nil
+		return nil, fmt.Errorf("failed to query system.columns for %s.%s: %w", database, table, err)
 	}
 	defer rows.Close()
 

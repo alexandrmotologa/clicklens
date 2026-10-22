@@ -2,6 +2,7 @@ package inspector
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/alexandrmotologa/clicklens/internal/client"
@@ -48,7 +49,7 @@ func (mi *MutationsInspector) GetMutations(ctx context.Context, database, table 
 
 	rows, err := conn.Query(ctx, query, database, database, table, table)
 	if err != nil {
-		return mi.client.Simulator().GetMutations(), nil
+		return nil, fmt.Errorf("failed to query system.mutations: %w", err)
 	}
 	defer rows.Close()
 

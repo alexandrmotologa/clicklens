@@ -79,8 +79,7 @@ func (qi *QueryLogInspector) GetQueryLog(ctx context.Context, filter string, lim
 
 	rows, err := conn.Query(ctx, query)
 	if err != nil {
-		// Fallback to simulated query log if system.query_log is inaccessible or disabled
-		return qi.client.Simulator().GetQueryLog(filter, limit), nil
+		return nil, fmt.Errorf("failed to query system.query_log: %w", err)
 	}
 	defer rows.Close()
 

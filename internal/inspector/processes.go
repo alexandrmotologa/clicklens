@@ -47,7 +47,7 @@ func (pi *ProcessesInspector) GetActiveProcesses(ctx context.Context) ([]models.
 
 	rows, err := conn.Query(ctx, query)
 	if err != nil {
-		return pi.client.Simulator().GetProcesses(), nil
+		return nil, fmt.Errorf("failed to query system.processes: %w", err)
 	}
 	defer rows.Close()
 

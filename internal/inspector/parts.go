@@ -52,9 +52,7 @@ func (pi *PartsInspector) GetTableParts(ctx context.Context, database, table str
 
 	rows, err := conn.Query(ctx, query, database, table)
 	if err != nil {
-		// Fallback to simulator if query fails
-		res := pi.client.Simulator().GetTableParts(database, table)
-		return &res, nil
+		return nil, fmt.Errorf("failed to query system.parts for %s.%s: %w", database, table, err)
 	}
 	defer rows.Close()
 

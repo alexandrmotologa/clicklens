@@ -310,16 +310,13 @@ func (h *APIHandler) HandleQuery(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
 	if h.client.IsSimulated() {
-		// Provide mock results for the simulated demo console
-		h.writeJSON(w, http.StatusOK, models.QueryResult{
-			Query:           req.Query,
-			Columns:         []string{"event_type", "count", "avg_duration_ms"},
-			Rows:            [][]any{{"login", 142090, 14.2}, {"page_view", 890420, 8.4}, {"checkout", 28410, 48.9}},
-			RowsCount:       3,
-			ExecutionTimeMs: 12.4,
-			RowsRead:        1060920,
-			BytesRead:       38491024,
-		})
+		if h.localRunner != nil && h.localRunner.IsAvailable() {
+			if res, err := h.localRunner.ExecuteQuery(r.Context(), req.Query); err == nil {
+				h.writeJSON(w, http.StatusOK, res)
+				return
+			}
+		}
+		h.writeJSON(w, http.StatusOK, h.client.Simulator().ExecuteQuery(req.Query))
 		return
 	}
 

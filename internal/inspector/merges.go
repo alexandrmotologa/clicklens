@@ -2,6 +2,7 @@ package inspector
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/alexandrmotologa/clicklens/internal/client"
 	"github.com/alexandrmotologa/clicklens/internal/models"
@@ -48,7 +49,7 @@ func (mi *MergesInspector) GetActiveMerges(ctx context.Context) ([]models.MergeI
 
 	rows, err := conn.Query(ctx, query)
 	if err != nil {
-		return mi.client.Simulator().TickMerges(), nil
+		return nil, fmt.Errorf("failed to query system.merges: %w", err)
 	}
 	defer rows.Close()
 

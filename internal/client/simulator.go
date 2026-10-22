@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -771,5 +772,87 @@ func (s *Simulator) GetQueryLog(filter string, limit int) *models.QueryLogRespon
 		Filter:  filter,
 		Total:   len(filtered),
 		Entries: filtered,
+	}
+}
+
+// ExecuteQuery parses and evaluates SQL queries for the simulated telemetry engine.
+func (s *Simulator) ExecuteQuery(query string) models.QueryResult {
+	clean := strings.TrimSpace(query)
+	upper := strings.ToUpper(clean)
+	t0 := time.Now()
+
+	switch {
+	case strings.HasPrefix(upper, "SHOW TABLES"):
+		return models.QueryResult{
+			Query:           clean,
+			Columns:         []string{"name"},
+			Rows:            [][]any{{"events"}, {"metrics"}, {"orders"}, {"customers"}, {"access_log"}},
+			RowsCount:       5,
+			ExecutionTimeMs: 1.2,
+		}
+
+	case strings.HasPrefix(upper, "SHOW DATABASES"):
+		return models.QueryResult{
+			Query:           clean,
+			Columns:         []string{"name"},
+			Rows:            [][]any{{"telemetry"}, {"analytics"}, {"logs"}, {"system"}},
+			RowsCount:       4,
+			ExecutionTimeMs: 0.8,
+		}
+
+	case strings.Contains(upper, "VERSION()"):
+		return models.QueryResult{
+			Query:           clean,
+			Columns:         []string{"version()"},
+			Rows:            [][]any{{"24.8.3.16 (ClickLens Simulated Engine)"}},
+			RowsCount:       1,
+			ExecutionTimeMs: 0.5,
+		}
+
+	case strings.Contains(upper, "COUNT()") && strings.Contains(upper, "EVENTS"):
+		return models.QueryResult{
+			Query:           clean,
+			Columns:         []string{"count()"},
+			Rows:            [][]any{{1420180}},
+			RowsCount:       1,
+			ExecutionTimeMs: 2.4,
+			RowsRead:        1420180,
+			BytesRead:       14201800,
+		}
+
+	case strings.Contains(upper, "ORDERS"):
+		return models.QueryResult{
+			Query:           clean,
+			Columns:         []string{"order_id", "customer_id", "status", "amount_usd", "created_at"},
+			Rows: [][]any{
+				{1001, 401, "completed", 189.50, "2026-10-22 14:20:10"},
+				{1002, 402, "processing", 42.00, "2026-10-22 14:21:05"},
+				{1003, 405, "completed", 1250.00, "2026-10-22 14:23:44"},
+				{1004, 408, "refunded", 99.99, "2026-10-22 14:25:12"},
+				{1005, 412, "completed", 310.25, "2026-10-22 14:28:30"},
+			},
+			RowsCount:       5,
+			ExecutionTimeMs: 4.1,
+			RowsRead:        50000,
+			BytesRead:       1840000,
+		}
+
+	default: // Default telemetry events
+		now := time.Now().Format("2006-01-02 15:04:05")
+		return models.QueryResult{
+			Query:           clean,
+			Columns:         []string{"event_time", "event_type", "host", "duration_ms", "user_id"},
+			Rows: [][]any{
+				{now, "api_request", "prod-worker-01", 14.2, 8912},
+				{now, "db_query", "prod-worker-02", 8.4, 9041},
+				{now, "checkout", "prod-worker-01", 48.9, 1204},
+				{now, "login", "auth-gateway", 22.1, 7731},
+				{now, "cache_hit", "cache-node-03", 1.8, 5509},
+			},
+			RowsCount:       5,
+			ExecutionTimeMs: float64(time.Since(t0).Microseconds()) / 1000.0,
+			RowsRead:        142090,
+			BytesRead:       4810240,
+		}
 	}
 }

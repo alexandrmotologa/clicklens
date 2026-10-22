@@ -46,10 +46,7 @@ func (ep *ExplainParser) ParseQueryPipeline(ctx context.Context, query string, m
 	explainCmd := fmt.Sprintf("EXPLAIN %s %s", mode, cleanQuery)
 	rows, err := conn.Query(ctx, explainCmd)
 	if err != nil {
-		// If real explain fails (e.g. invalid query or syntax), return simulated graph with error message
-		analysis := ep.client.Simulator().GenerateSamplePipelineAnalysis(cleanQuery)
-		analysis.RawText = fmt.Sprintf("Query execution warning: %v\n\nFalling back to reference execution graph.", err)
-		return &analysis, nil
+		return nil, fmt.Errorf("failed to explain query: %w", err)
 	}
 	defer rows.Close()
 
